@@ -1,9 +1,9 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Quiz of Love ðŸ’•</title>
+  <title>Quiz of Love 💕</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
@@ -11,142 +11,142 @@
 </head>
 <body>
 
-  <!-- Fond animÃ© -->
+  <!-- Fond animé -->
   <div id="hearts-bg" aria-hidden="true"></div>
   <div id="confetti-container" aria-hidden="true"></div>
 
-  <!-- Chat qui se balade ðŸ± -->
+  <!-- Chat qui se balade 🐱 -->
   <img id="cat-bounce" src="chat.png" alt="chat" class="cat-bounce" onerror="this.style.display='none'" />
 
-  <!-- â•â•â•â•â•â•â•â• ACCUEIL â•â•â•â•â•â•â•â• -->
+  <!-- ════════ ACCUEIL ════════ -->
   <div id="screen-welcome" class="screen active">
     <div class="welcome-content">
       <div class="logo-area">
-        <div class="main-heart">â¤ï¸</div>
+        <div class="main-heart">❤️</div>
         <h1 class="game-title">Quiz of Love</h1>
         <p class="game-subtitle">Les potins de Scott &amp; Nolwen</p>
         <p class="game-tagline">Vous connaissez-vous vraiment ?</p>
       </div>
       <div class="welcome-buttons">
         <button class="btn btn-primary btn-xl" onclick="App.showScreen('screen-setup')">
-          <span>Commencer l'aventure</span><span class="btn-icon">ðŸ’˜</span>
+          <span>Commencer l'aventure</span><span class="btn-icon">💘</span>
         </button>
       </div>
       <div class="modes-preview">
-        <span class="mode-pill">ðŸ§  Connaissance</span>
-        <span class="mode-pill">ðŸ”¥ Hot &amp; Spicy</span>
-        <span class="mode-pill">ðŸ’• Couple Goals</span>
-        <span class="mode-pill">ðŸŽ­ DÃ©fi Fou</span>
+        <span class="mode-pill">🧠 Connaissance</span>
+        <span class="mode-pill">🔥 Hot &amp; Spicy</span>
+        <span class="mode-pill">💕 Couple Goals</span>
+        <span class="mode-pill">🎭 Défi Fou</span>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• SETUP â•â•â•â•â•â•â•â• -->
+  <!-- ════════ SETUP ════════ -->
   <div id="screen-setup" class="screen">
     <div class="setup-content">
-      <button class="btn-back" onclick="App.showScreen('screen-welcome')">â† Retour</button>
+      <button class="btn-back" onclick="App.showScreen('screen-welcome')">← Retour</button>
       <h2 class="screen-title">Qui es-tu ?</h2>
       <div class="player-select">
         <button class="player-card" id="card-scott" onclick="App.selectPlayer('scott')">
-          <div class="player-avatar">ðŸ‘¨</div>
+          <div class="player-avatar">👨</div>
           <span class="player-name-label">Scott</span>
-          <span class="player-check hidden">âœ“</span>
+          <span class="player-check hidden">✓</span>
         </button>
-        <div class="heart-divider">ðŸ’•</div>
+        <div class="heart-divider">💕</div>
         <button class="player-card" id="card-nolwen" onclick="App.selectPlayer('nolwen')">
-          <div class="player-avatar">ðŸ‘©</div>
+          <div class="player-avatar">👩</div>
           <span class="player-name-label">Nolwen</span>
-          <span class="player-check hidden">âœ“</span>
+          <span class="player-check hidden">✓</span>
         </button>
       </div>
 
       <div id="room-options" class="room-options hidden">
         <button class="btn btn-primary btn-lg" onclick="App.createRoom()">
-          <span>CrÃ©er une partie</span><span class="btn-icon">ðŸŽ®</span>
+          <span>Créer une partie</span><span class="btn-icon">🎮</span>
         </button>
-        <div class="divider-text">â€” ou rejoindre une partie â€”</div>
+        <div class="divider-text">— ou rejoindre une partie —</div>
         <div class="join-form">
-          <input type="text" id="join-code-input" placeholder="CODE Ã€ 6 CHIFFRES"
+          <input type="text" id="join-code-input" placeholder="CODE À 6 CHIFFRES"
             maxlength="6" autocomplete="off" oninput="this.value=this.value.toUpperCase()" />
-          <button class="btn btn-secondary" onclick="App.joinRoom()">Rejoindre âž”</button>
+          <button class="btn btn-secondary" onclick="App.joinRoom()">Rejoindre ➔</button>
         </div>
 
-        <p class="code-hint">Un seul code de salon donne acces a tous les jeux.</p>
+        <p class="code-hint">Un seul code de salon donne acc&egrave;s &agrave; tous les jeux.</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• LOBBY QUIZ â•â•â•â•â•â•â•â• -->
+  <!-- ════════ LOBBY QUIZ ════════ -->
   <div id="screen-lobby" class="screen">
     <div class="lobby-content">
       <h2 class="screen-title">Salle d'attente</h2>
       <div id="room-code-display" class="room-code-display hidden">
         <p class="code-label">Code de ta partie :</p>
         <div class="code-box" id="room-code-text">------</div>
-        <p class="code-hint">ðŸ“² Envoie ce code Ã  l'autre joueur</p>
-        <button class="btn-copy" onclick="App.copyCode()">ðŸ“‹ Copier</button>
+        <p class="code-hint">📲 Envoie ce code à l'autre joueur</p>
+        <button class="btn-copy" onclick="App.copyCode()">📋 Copier</button>
       </div>
       <div class="players-status-row">
-        <div class="pstatus-card" id="pstatus-scott"><div class="pstatus-avatar">ðŸ‘¨</div><div class="pstatus-name">Scott</div><div class="pstatus-dot" id="dot-scott"></div></div>
-        <div class="vs-heart">ðŸ’ž</div>
-        <div class="pstatus-card" id="pstatus-nolwen"><div class="pstatus-avatar">ðŸ‘©</div><div class="pstatus-name">Nolwen</div><div class="pstatus-dot" id="dot-nolwen"></div></div>
+        <div class="pstatus-card" id="pstatus-scott"><div class="pstatus-avatar">👨</div><div class="pstatus-name">Scott</div><div class="pstatus-dot" id="dot-scott"></div></div>
+        <div class="vs-heart">💞</div>
+        <div class="pstatus-card" id="pstatus-nolwen"><div class="pstatus-avatar">👩</div><div class="pstatus-name">Nolwen</div><div class="pstatus-dot" id="dot-nolwen"></div></div>
       </div>
       <button class="btn-back btn-quit-salon" onclick="App.leaveRoom()">&larr; Quitter le salon</button>
       <div id="mode-select" class="mode-select hidden">
         <h3 class="mode-select-title">Choisissez votre mode de jeu</h3>
         <div class="modes-grid">
-          <button class="mode-card" data-mode="connaissance" onclick="App.selectMode('connaissance')"><span class="mode-emoji">ðŸ§ </span><span class="mode-name">Connaissance</span><span class="mode-desc">Vous connaissez-vous vraiment ?</span></button>
-          <button class="mode-card" data-mode="hot" onclick="App.selectMode('hot')"><span class="mode-emoji">ðŸ”¥</span><span class="mode-name">Hot &amp; Spicy</span><span class="mode-desc">Pour les courageuxâ€¦ ðŸ˜ˆ</span></button>
-          <button class="mode-card" data-mode="couple" onclick="App.selectMode('couple')"><span class="mode-emoji">ðŸ’•</span><span class="mode-name">Couple Goals</span><span class="mode-desc">Votre futur ensemble</span></button>
-          <button class="mode-card" data-mode="defi" onclick="App.selectMode('defi')"><span class="mode-emoji">ðŸŽ­</span><span class="mode-name">DÃ©fi Fou</span><span class="mode-desc">Osez tout !</span></button>
+          <button class="mode-card" data-mode="connaissance" onclick="App.selectMode('connaissance')"><span class="mode-emoji">🧠</span><span class="mode-name">Connaissance</span><span class="mode-desc">Vous connaissez-vous vraiment ?</span></button>
+          <button class="mode-card" data-mode="hot" onclick="App.selectMode('hot')"><span class="mode-emoji">🔥</span><span class="mode-name">Hot &amp; Spicy</span><span class="mode-desc">Pour les courageux… 😈</span></button>
+          <button class="mode-card" data-mode="couple" onclick="App.selectMode('couple')"><span class="mode-emoji">💕</span><span class="mode-name">Couple Goals</span><span class="mode-desc">Votre futur ensemble</span></button>
+          <button class="mode-card" data-mode="defi" onclick="App.selectMode('defi')"><span class="mode-emoji">🎭</span><span class="mode-name">Défi Fou</span><span class="mode-desc">Osez tout !</span></button>
         </div>
-        <button id="start-game-btn" class="btn btn-primary btn-lg hidden" onclick="App.startGame()">Lancer le jeu ! ðŸš€</button>
+        <button id="start-game-btn" class="btn btn-primary btn-lg hidden" onclick="App.startGame()">Lancer le jeu ! 🚀</button>
       </div>
       <div id="salon-games" class="autres-jeux-section hidden">
         <h3 class="mode-select-title">Autres jeux du salon</h3>
         <div class="mini-games-grid">
           <button class="mini-game-card" onclick="App.launchMiniGame('morpion')">
-            <span class="mg-emoji">O</span>
+            <span class="mg-emoji">&#11093;</span>
             <span class="mg-name">Morpion<br/>Love</span>
           </button>
           <button class="mini-game-card" onclick="App.launchMiniGame('p4')">
-            <span class="mg-emoji">4</span>
+            <span class="mg-emoji">&#128308;</span>
             <span class="mg-name">Puissance<br/>4</span>
           </button>
           <button class="mini-game-card" onclick="App.launchMiniGame('pfc')">
-            <span class="mg-emoji">PFC</span>
+            <span class="mg-emoji">&#9994;</span>
             <span class="mg-name">Pierre<br/>Feuille</span>
           </button>
           <button class="mini-game-card" onclick="App.launchMiniGame('vod')">
-            <span class="mg-emoji">VD</span>
-            <span class="mg-name">Verite<br/>ou Defi</span>
+            <span class="mg-emoji">&#127917;</span>
+            <span class="mg-name">V&eacute;rit&eacute;<br/>ou D&eacute;fi</span>
           </button>
           <button class="mini-game-card" onclick="App.launchMiniGame('uno')">
-            <span class="mg-emoji">UNO</span>
+            <span class="mg-emoji">&#127183;</span>
             <span class="mg-name">Uno<br/>Love</span>
           </button>
           <button class="mini-game-card" onclick="App.launchMiniGame('bataille')">
-            <span class="mg-emoji">BN</span>
+            <span class="mg-emoji">&#128674;</span>
             <span class="mg-name">Bataille<br/>Navale</span>
           </button>
         </div>
-        <p class="code-hint">Meme code, meme salon, changez de jeu sans reconnecter.</p>
+        <p class="code-hint">M&ecirc;me code, m&ecirc;me salon, changez de jeu sans reconnecter.</p>
       </div>
       <div id="lobby-waiting" class="lobby-waiting">
         <div class="pulse-dots"><span></span><span></span><span></span></div>
-        <p id="lobby-waiting-msg">En attente de l'autre joueurâ€¦</p>
+        <p id="lobby-waiting-msg">En attente de l'autre joueur…</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• JEU QUIZ â•â•â•â•â•â•â•â• -->
+  <!-- ════════ JEU QUIZ ════════ -->
   <div id="screen-game" class="screen">
     <div class="game-wrapper">
-      <button class="btn-back" onclick="App.leaveRoom()" style="align-self:flex-start;margin-bottom:-4px">â† Quitter</button>
+      <button class="btn-back" onclick="App.leaveRoom()" style="align-self:flex-start;margin-bottom:-4px">← Quitter</button>
       <div class="game-header">
-        <div class="score-block"><span class="score-player-name">ðŸ‘¨ Scott</span><span class="score-num" id="score-scott">0</span></div>
-        <div class="question-progress"><span id="question-counter">1 / 15</span><span class="mode-badge" id="mode-badge">ðŸ§ </span></div>
-        <div class="score-block"><span class="score-num" id="score-nolwen">0</span><span class="score-player-name">Nolwen ðŸ‘©</span></div>
+        <div class="score-block"><span class="score-player-name">👨 Scott</span><span class="score-num" id="score-scott">0</span></div>
+        <div class="question-progress"><span id="question-counter">1 / 15</span><span class="mode-badge" id="mode-badge">🧠</span></div>
+        <div class="score-block"><span class="score-num" id="score-nolwen">0</span><span class="score-player-name">Nolwen 👩</span></div>
       </div>
       <div class="timer-bar-wrap"><div class="timer-bar-fill" id="timer-bar-fill"></div></div>
       <div class="timer-text" id="timer-text">15</div>
@@ -156,43 +156,43 @@
         <div class="answers-grid" id="answers-grid"></div>
         <div id="answered-waiting" class="answered-waiting hidden">
           <div class="pulse-dots"><span></span><span></span><span></span></div>
-          <p>RÃ©ponse envoyÃ©e ! En attente de l'autre joueurâ€¦</p>
+          <p>Réponse envoyée ! En attente de l'autre joueur…</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• RÃ‰SULTAT MANCHE â•â•â•â•â•â•â•â• -->
+  <!-- ════════ RÉSULTAT MANCHE ════════ -->
   <div id="screen-result" class="screen">
     <div class="result-content">
-      <div class="result-anim" id="result-anim">ðŸŽ‰</div>
-      <h2 class="result-title" id="result-title">RÃ©sultat</h2>
+      <div class="result-anim" id="result-anim">🎉</div>
+      <h2 class="result-title" id="result-title">Résultat</h2>
       <p class="result-message" id="result-message">...</p>
       <div class="answers-reveal">
-        <div class="answer-reveal-card" id="reveal-scott"><div class="reveal-player">ðŸ‘¨ Scott</div><div class="reveal-answer" id="reveal-scott-answer">â€”</div></div>
+        <div class="answer-reveal-card" id="reveal-scott"><div class="reveal-player">👨 Scott</div><div class="reveal-answer" id="reveal-scott-answer">—</div></div>
         <div class="reveal-vs">VS</div>
-        <div class="answer-reveal-card" id="reveal-nolwen"><div class="reveal-player">ðŸ‘© Nolwen</div><div class="reveal-answer" id="reveal-nolwen-answer">â€”</div></div>
+        <div class="answer-reveal-card" id="reveal-nolwen"><div class="reveal-player">👩 Nolwen</div><div class="reveal-answer" id="reveal-nolwen-answer">—</div></div>
       </div>
       <div class="scores-row">
-        <div class="score-big-card"><span>ðŸ‘¨</span><span class="score-big-num" id="result-score-scott">0</span><span class="score-big-label">pts</span></div>
-        <span class="score-big-vs">Â·</span>
-        <div class="score-big-card"><span>ðŸ‘©</span><span class="score-big-num" id="result-score-nolwen">0</span><span class="score-big-label">pts</span></div>
+        <div class="score-big-card"><span>👨</span><span class="score-big-num" id="result-score-scott">0</span><span class="score-big-label">pts</span></div>
+        <span class="score-big-vs">·</span>
+        <div class="score-big-card"><span>👩</span><span class="score-big-num" id="result-score-nolwen">0</span><span class="score-big-label">pts</span></div>
       </div>
-      <button id="next-btn" class="btn btn-primary btn-lg" onclick="App.nextQuestion()">Question suivante âž”</button>
-      <p id="next-waiting-msg" class="next-waiting hidden">En attente de l'hÃ´teâ€¦</p>
+      <button id="next-btn" class="btn btn-primary btn-lg" onclick="App.nextQuestion()">Question suivante ➔</button>
+      <p id="next-waiting-msg" class="next-waiting hidden">En attente de l'hôte…</p>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• SCORE FINAL â•â•â•â•â•â•â•â• -->
+  <!-- ════════ SCORE FINAL ════════ -->
   <div id="screen-final" class="screen">
     <div class="final-content">
-      <div class="trophy-big" id="trophy-anim">ðŸ†</div>
+      <div class="trophy-big" id="trophy-anim">🏆</div>
       <h1 class="final-title">Fin de la partie !</h1>
       <div class="winner-block" id="winner-block"></div>
       <div class="final-scores-row">
-        <div class="final-score-card"><div class="final-avatar">ðŸ‘¨</div><div class="final-player-name">Scott</div><div class="final-score-num" id="final-score-scott">0</div><div class="final-pts">points</div></div>
-        <div class="final-heart">ðŸ’•</div>
-        <div class="final-score-card"><div class="final-avatar">ðŸ‘©</div><div class="final-player-name">Nolwen</div><div class="final-score-num" id="final-score-nolwen">0</div><div class="final-pts">points</div></div>
+        <div class="final-score-card"><div class="final-avatar">👨</div><div class="final-player-name">Scott</div><div class="final-score-num" id="final-score-scott">0</div><div class="final-pts">points</div></div>
+        <div class="final-heart">💕</div>
+        <div class="final-score-card"><div class="final-avatar">👩</div><div class="final-player-name">Nolwen</div><div class="final-score-num" id="final-score-nolwen">0</div><div class="final-pts">points</div></div>
       </div>
       <div class="love-msg" id="love-msg"></div>
       <button class="btn btn-primary btn-xl" onclick="App.backToLobby()">Retour au salon</button>
@@ -200,87 +200,87 @@
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• LOBBY MINI-JEU â•â•â•â•â•â•â•â• -->
+  <!-- ════════ LOBBY MINI-JEU ════════ -->
   <div id="screen-game-lobby" class="screen">
     <div class="lobby-content">
-      <button class="btn-back" onclick="GameHub.exitLobby()">â† Retour</button>
+      <button class="btn-back" onclick="GameHub.exitLobby()">← Retour</button>
       <h2 class="screen-title" id="game-lobby-title">Mini-jeu</h2>
       <div id="game-room-code-display" class="room-code-display hidden">
         <p class="code-label">Code de la partie :</p>
         <div class="code-box" id="game-room-code-text">------</div>
-        <p class="code-hint">ðŸ“² Envoie ce code Ã  l'autre joueur</p>
-        <button class="btn-copy" onclick="GameHub.copyCode()">ðŸ“‹ Copier</button>
+        <p class="code-hint">📲 Envoie ce code à l'autre joueur</p>
+        <button class="btn-copy" onclick="GameHub.copyCode()">📋 Copier</button>
       </div>
       <div class="players-status-row">
-        <div class="pstatus-card" id="gpstatus-scott"><div class="pstatus-avatar">ðŸ‘¨</div><div class="pstatus-name">Scott</div><div class="pstatus-dot" id="gdot-scott"></div></div>
-        <div class="vs-heart">ðŸ’ž</div>
-        <div class="pstatus-card" id="gpstatus-nolwen"><div class="pstatus-avatar">ðŸ‘©</div><div class="pstatus-name">Nolwen</div><div class="pstatus-dot" id="gdot-nolwen"></div></div>
+        <div class="pstatus-card" id="gpstatus-scott"><div class="pstatus-avatar">👨</div><div class="pstatus-name">Scott</div><div class="pstatus-dot" id="gdot-scott"></div></div>
+        <div class="vs-heart">💞</div>
+        <div class="pstatus-card" id="gpstatus-nolwen"><div class="pstatus-avatar">👩</div><div class="pstatus-name">Nolwen</div><div class="pstatus-dot" id="gdot-nolwen"></div></div>
       </div>
       <div id="game-create-join" class="room-options hidden">
-        <button class="btn btn-primary btn-lg" onclick="GameHub.createRoom()">CrÃ©er la partie ðŸŽ®</button>
-        <div class="divider-text">â€” ou rejoindre â€”</div>
+        <button class="btn btn-primary btn-lg" onclick="GameHub.createRoom()">Créer la partie 🎮</button>
+        <div class="divider-text">— ou rejoindre —</div>
         <div class="join-form">
-          <input type="text" id="game-join-input" placeholder="CODE Ã€ 6 CHIFFRES" maxlength="6" autocomplete="off" oninput="this.value=this.value.toUpperCase()" />
-          <button class="btn btn-secondary" onclick="GameHub.joinRoom()">Rejoindre âž”</button>
+          <input type="text" id="game-join-input" placeholder="CODE À 6 CHIFFRES" maxlength="6" autocomplete="off" oninput="this.value=this.value.toUpperCase()" />
+          <button class="btn btn-secondary" onclick="GameHub.joinRoom()">Rejoindre ➔</button>
         </div>
       </div>
       <div id="game-lobby-waiting" class="lobby-waiting">
         <div class="pulse-dots"><span></span><span></span><span></span></div>
-        <p id="game-lobby-waiting-msg">En attente de l'autre joueurâ€¦</p>
+        <p id="game-lobby-waiting-msg">En attente de l'autre joueur…</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• MORPION â•â•â•â•â•â•â•â• -->
+  <!-- ════════ MORPION ════════ -->
   <div id="screen-morpion" class="screen">
     <div class="mini-game-wrapper">
       <div class="mini-header">
         <button class="btn-back" onclick="GameHub.exitGame()">&larr; Quitter</button>
-        <span class="mini-title">Morpion Love â¤ï¸</span>
+        <span class="mini-title">Morpion Love ❤️</span>
         <div class="mini-scores-header"><span id="m-score-scott">0</span><span class="mini-score-sep">:</span><span id="m-score-nolwen">0</span></div>
       </div>
-      <p class="mini-status" id="morpion-status">En attenteâ€¦</p>
+      <p class="mini-status" id="morpion-status">En attente…</p>
       <div class="morpion-board" id="morpion-board"></div>
       <div id="morpion-result" class="mini-result hidden">
         <p id="morpion-result-msg" class="mini-result-msg"></p>
-        <button class="btn btn-primary" id="morpion-replay-btn" onclick="Morpion.restart()">Rejouer ðŸ”„</button>
-        <p id="morpion-replay-wait" class="next-waiting hidden">En attente de l'hÃ´teâ€¦</p>
+        <button class="btn btn-primary" id="morpion-replay-btn" onclick="Morpion.restart()">Rejouer 🔄</button>
+        <p id="morpion-replay-wait" class="next-waiting hidden">En attente de l'hôte…</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• PUISSANCE 4 â•â•â•â•â•â•â•â• -->
+  <!-- ════════ PUISSANCE 4 ════════ -->
   <div id="screen-p4" class="screen">
     <div class="mini-game-wrapper">
       <div class="mini-header">
         <button class="btn-back" onclick="GameHub.exitGame()">&larr; Quitter</button>
-        <span class="mini-title">Puissance 4 ðŸ”´</span>
+        <span class="mini-title">Puissance 4 🔴</span>
         <div class="mini-scores-header"><span id="p4-score-scott">0</span><span class="mini-score-sep">:</span><span id="p4-score-nolwen">0</span></div>
       </div>
-      <p class="mini-status" id="p4-status">En attenteâ€¦</p>
+      <p class="mini-status" id="p4-status">En attente…</p>
       <div class="p4-col-btns" id="p4-col-btns"></div>
       <div class="p4-board" id="p4-board"></div>
       <div id="p4-result" class="mini-result hidden">
         <p id="p4-result-msg" class="mini-result-msg"></p>
-        <button class="btn btn-primary" id="p4-replay-btn" onclick="P4.restart()">Rejouer ðŸ”„</button>
-        <p id="p4-replay-wait" class="next-waiting hidden">En attente de l'hÃ´teâ€¦</p>
+        <button class="btn btn-primary" id="p4-replay-btn" onclick="P4.restart()">Rejouer 🔄</button>
+        <p id="p4-replay-wait" class="next-waiting hidden">En attente de l'hôte…</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• PIERRE FEUILLE CISEAUX â•â•â•â•â•â•â•â• -->
+  <!-- ════════ PIERRE FEUILLE CISEAUX ════════ -->
   <div id="screen-pfc" class="screen">
     <div class="mini-game-wrapper">
       <div class="mini-header">
         <button class="btn-back" onclick="GameHub.exitGame()">&larr; Quitter</button>
-        <span class="mini-title">Pierre Feuille âœŠ</span>
+        <span class="mini-title">Pierre Feuille ✊</span>
         <div class="mini-scores-header"><span id="pfc-score-scott">0</span><span class="mini-score-sep">:</span><span id="pfc-score-nolwen">0</span></div>
       </div>
-      <p class="mini-status" id="pfc-status">Premier Ã  5 wins !</p>
+      <p class="mini-status" id="pfc-status">Premier à 5 wins !</p>
       <div class="pfc-choices" id="pfc-choices">
-        <button class="pfc-btn" onclick="PFC.choose('pierre')">âœŠ<br/>Pierre</button>
-        <button class="pfc-btn" onclick="PFC.choose('feuille')">ðŸ–ï¸<br/>Feuille</button>
-        <button class="pfc-btn" onclick="PFC.choose('ciseaux')">âœŒï¸<br/>Ciseaux</button>
+        <button class="pfc-btn" onclick="PFC.choose('pierre')">✊<br/>Pierre</button>
+        <button class="pfc-btn" onclick="PFC.choose('feuille')">🖐️<br/>Feuille</button>
+        <button class="pfc-btn" onclick="PFC.choose('ciseaux')">✌️<br/>Ciseaux</button>
       </div>
       <div id="pfc-reveal" class="pfc-reveal hidden">
         <div class="pfc-reveal-row">
@@ -292,51 +292,51 @@
       </div>
       <div id="pfc-waiting" class="answered-waiting hidden">
         <div class="pulse-dots"><span></span><span></span><span></span></div>
-        <p>En attente de l'autre joueurâ€¦</p>
+        <p>En attente de l'autre joueur…</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• VÃ‰RITÃ‰ OU DÃ‰FI â•â•â•â•â•â•â•â• -->
+  <!-- ════════ VÉRITÉ OU DÉFI ════════ -->
   <div id="screen-vod" class="screen">
     <div class="mini-game-wrapper">
       <div class="mini-header">
         <button class="btn-back" onclick="GameHub.exitGame()">&larr; Quitter</button>
-        <span class="mini-title">VÃ©ritÃ© ou DÃ©fi ðŸŽ­</span>
+        <span class="mini-title">Vérité ou Défi 🎭</span>
         <div class="mini-scores-header"></div>
       </div>
       <p class="mini-status" id="vod-turn-label">Tour de Scott</p>
       <div id="vod-choose" class="vod-choose">
-        <button class="vod-btn vod-verite" onclick="VOD.pick('verite')">ðŸ•Šï¸<br/>VÃ©ritÃ©</button>
-        <button class="vod-btn vod-defi" onclick="VOD.pick('defi')">ðŸ”¥<br/>DÃ©fi</button>
+        <button class="vod-btn vod-verite" onclick="VOD.pick('verite')">🕊️<br/>Vérité</button>
+        <button class="vod-btn vod-defi" onclick="VOD.pick('defi')">🔥<br/>Défi</button>
       </div>
       <div id="vod-question" class="vod-question hidden">
         <div class="vod-question-card">
-          <p class="vod-type-label" id="vod-type-label">VÃ‰RITÃ‰</p>
+          <p class="vod-type-label" id="vod-type-label">VÉRITÉ</p>
           <p class="vod-question-text" id="vod-question-text">...</p>
         </div>
-        <button class="btn btn-primary" onclick="VOD.next()">Tour suivant âž”</button>
+        <button class="btn btn-primary" onclick="VOD.next()">Tour suivant ➔</button>
       </div>
       <div id="vod-waiting" class="answered-waiting hidden">
         <div class="pulse-dots"><span></span><span></span><span></span></div>
-        <p id="vod-waiting-msg">En attente de l'autre joueurâ€¦</p>
+        <p id="vod-waiting-msg">En attente de l'autre joueur…</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• UNO LOVE â•â•â•â•â•â•â•â• -->
+  <!-- ════════ UNO LOVE ════════ -->
   <div id="screen-uno" class="screen">
     <div class="mini-game-wrapper uno-wrapper">
       <div class="mini-header">
         <button class="btn-back" onclick="GameHub.exitGame()">&larr; Quitter</button>
-        <span class="mini-title">Uno Love ðŸƒ</span>
+        <span class="mini-title">Uno Love 🃏</span>
         <div class="mini-scores-header"><span id="uno-cards-enemy">? cartes</span></div>
       </div>
-      <p class="mini-status" id="uno-status">Chargementâ€¦</p>
+      <p class="mini-status" id="uno-status">Chargement…</p>
       <div class="uno-game-area">
         <div class="uno-pile-area">
           <div class="uno-draw-pile" onclick="Uno.draw()">
-            <span>ðŸƒ</span><small>Piocher</small>
+            <span>🃏</span><small>Piocher</small>
           </div>
           <div class="uno-current-card" id="uno-current-card">
             <span id="uno-card-value">?</span>
@@ -347,17 +347,17 @@
       </div>
       <div id="uno-waiting" class="answered-waiting hidden">
         <div class="pulse-dots"><span></span><span></span><span></span></div>
-        <p>Au tour de l'autre joueurâ€¦</p>
+        <p>Au tour de l'autre joueur…</p>
       </div>
     </div>
   </div>
 
-  <!-- â•â•â•â•â•â•â•â• BATAILLE NAVALE â•â•â•â•â•â•â•â• -->
+  <!-- ════════ BATAILLE NAVALE ════════ -->
   <div id="screen-bataille" class="screen">
     <div class="mini-game-wrapper">
       <div class="mini-header">
         <button class="btn-back" onclick="GameHub.exitGame()">&larr; Quitter</button>
-        <span class="mini-title">Bataille Navale ðŸš¢</span>
+        <span class="mini-title">Bataille Navale 🚢</span>
         <div class="mini-scores-header"></div>
       </div>
       <p class="mini-status" id="bn-status">Placer tes bateaux</p>
@@ -365,12 +365,12 @@
       <div id="bn-setup" class="bn-section">
         <p class="bn-hint" id="bn-setup-hint">Place tes 3 bateaux (taille 3, 2, 1)</p>
         <div class="bn-ship-btns">
-          <button class="bn-ship-btn active" id="bn-ship-btn-h" onclick="BN.setDir('h')">â†” Horizontal</button>
-          <button class="bn-ship-btn" id="bn-ship-btn-v" onclick="BN.setDir('v')">â†• Vertical</button>
+          <button class="bn-ship-btn active" id="bn-ship-btn-h" onclick="BN.setDir('h')">↔ Horizontal</button>
+          <button class="bn-ship-btn" id="bn-ship-btn-v" onclick="BN.setDir('v')">↕ Vertical</button>
         </div>
         <div class="bn-grid-label">Mon terrain</div>
         <div class="bn-grid" id="bn-my-grid"></div>
-        <button class="btn btn-primary" id="bn-ready-btn" onclick="BN.ready()" style="margin-top:12px;display:none">PrÃªt ! âœ…</button>
+        <button class="btn btn-primary" id="bn-ready-btn" onclick="BN.ready()" style="margin-top:12px;display:none">Prêt ! ✅</button>
       </div>
       <!-- Phase de jeu -->
       <div id="bn-play" class="bn-section hidden">
