@@ -89,6 +89,8 @@ const App = {
     const roomData = {
       host:          State.player,
       guest:         null,
+      leftBy:        '_',
+      leftAt:        0,
       status:        "lobby",
       activeFlow:    "lobby",
       mode:          null,
@@ -138,7 +140,11 @@ const App = {
         if (data.guest && data.guest !== State.player) {
           App.toast("Cette salle est déjà complète !"); return;
         }
-        await db.ref('rooms/' + code).update({ guest: State.player });
+        await db.ref('rooms/' + code).update({
+          guest:  State.player,
+          leftBy: '_',
+          leftAt: 0,
+        });
         App.showScreen('screen-lobby');
         UI.setPlayerDot(State.player, true);
         App.setupListener(code);
@@ -173,8 +179,13 @@ const App = {
     }
     if (State._leftRef) {
       State._leftRef.onDisconnect().cancel();
-      State._leftRef.set(State.player).catch(() => {});
       State._leftRef = null;
+    }
+    if (State.roomRef) {
+      State.roomRef.update({
+        leftBy: State.player,
+        leftAt: Date.now(),
+      }).catch(() => {});
     }
     if (State.roomRef) { State.roomRef.off(); State.roomRef = null; }
     State.roomCode = null;
@@ -209,6 +220,8 @@ const App = {
       miniSession: Date.now(),
       miniLeftBy:  '_',
       miniLeftAt:  0,
+      leftBy:      '_',
+      leftAt:      0,
     });
     SFX.play('start');
   },
@@ -238,7 +251,7 @@ const App = {
   handleRoomUpdate(data) {
     const status = data.status || 'lobby';
 
-    if (data.leftBy && data.leftBy !== State.player) {
+    if (data.leftBy && data.leftBy !== '_' && data.leftBy !== State.player && data.activeFlow !== 'mini') {
       const name = data.leftBy === 'scott' ? 'Scott' : 'Nolwen';
       if (State._leftRef) { State._leftRef.onDisconnect().cancel(); State._leftRef = null; }
       if (State.roomRef) { State.roomRef.off(); State.roomRef = null; }
@@ -286,6 +299,9 @@ const App = {
 
       if (bothConnected) {
         if (State.isHost) {
+          if (data.leftBy && data.leftBy !== '_') {
+            State.roomRef.update({ leftBy: '_', leftAt: 0 }).catch(() => {});
+          }
           startBtn.classList.remove('hidden');
           waiting.classList.add('hidden');
         } else {

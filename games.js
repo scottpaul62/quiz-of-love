@@ -101,7 +101,7 @@ const GameHub = {
       case 'morpion':  return { board: Array(9).fill('_'),  turn: 'scott', winner: '_', scores: {scott:0, nolwen:0} };
       case 'p4':       return { board: Array(42).fill('_'), turn: 'scott', winner: '_', scores: {scott:0, nolwen:0} };
       case 'pfc':      return { choices: {scott:'_', nolwen:'_'}, scores: {scott:0, nolwen:0}, round: 0 };
-      case 'vod':      return { turn: 'scott', pick: '_', questionIdx: -1, status: 'choosing' };
+      case 'vod':      return { turn: 'scott', pick: '_', questionIdx: -1, questionText: '_', status: 'choosing', usedVerite: [], usedDefi: [], lastQuestion: '_' };
       case 'uno':      return Uno.buildInitialState();
       case 'bataille': return { statusPhase: 'setup', shipsScott: 'none', shipsNolwen: 'none', shotsScott: 'none', shotsNolwen: 'none', turn: 'scott' };
       default:         return {};
@@ -569,23 +569,50 @@ const VOD = {
 
   async pick(type) {
     const pool = VOD_DATA[type];
-    const text = pool[Math.floor(Math.random() * pool.length)];
-    await GameHub.roomRef.update({
+    if (!pool || pool.length === 0) return;
+
+    const snap = await GameHub.roomRef.get();
+    const gs = snap.val()?.gameState || {};
+
+    const usedKey = type === 'verite' ? 'usedVerite' : 'usedDefi';
+    const used = Array.isArray(gs[usedKey]) ? gs[usedKey] : [];
+
+    let available = pool.map((_, i) => i).filter(i => !used.includes(i));
+    if (available.length === 0) {
+      // Pool exhausted: reset cycle, but still avoid immediate repeat if possible.
+      available = pool.map((_, i) => i);
+    }
+
+    let idx = available[Math.floor(Math.random() * available.length)];
+    if (available.length > 1 && idx === gs.questionIdx) {
+      const withoutLast = available.filter(i => i !== gs.questionIdx);
+      idx = withoutLast[Math.floor(Math.random() * withoutLast.length)];
+    }
+
+    const text = pool[idx];
+    const nextUsed = used.includes(idx) ? used : [...used, idx];
+
+    const payload = {
       'gameState/pick':         type,
+      'gameState/questionIdx':  idx,
       'gameState/questionText': text,
+      'gameState/lastQuestion': text,
       'gameState/status':       'question',
-    });
+    };
+    payload[`gameState/${usedKey}`] = nextUsed;
+
+    await GameHub.roomRef.update(payload);
     SFX.play('select');
   },
 
   async next() {
-    const cur = GameHub.player === 'scott' ? 'nolwen' : 'scott';
     const snap = await GameHub.roomRef.get();
     const gs = snap.val().gameState;
     await GameHub.roomRef.update({
       'gameState/turn':   gs.turn === 'scott' ? 'nolwen' : 'scott',
       'gameState/status': 'choosing',
       'gameState/pick':   '_',
+      'gameState/questionText': '_',
     });
   },
 };
