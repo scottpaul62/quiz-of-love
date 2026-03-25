@@ -73,6 +73,8 @@ const App = {
     card.classList.add('selected');
     card.querySelector('.player-check').classList.remove('hidden');
     document.getElementById('room-options').classList.remove('hidden');
+    const jeux = document.getElementById('autres-jeux-section');
+    if (jeux) jeux.classList.remove('hidden');
     SFX.play('select');
   },
 
@@ -511,11 +513,9 @@ const UI = {
         : 'Bonne devinette — connexion extraordinaire ! 🔮';
       SFX.play('correct');
     } else {
-      anim.textContent  = '😄';
+      anim.textContent  = '😂';
       title.textContent = 'Réponses différentes !';
-      msg.textContent   = question.type === 'match'
-        ? 'Vous êtes complémentaires après tout… 😉'
-        : 'Il reste des secrets à découvrir ! 🕵️';
+      msg.textContent   = randomFrom(TROLL_MESSAGES);
       SFX.play('wrong');
     }
 
@@ -549,13 +549,13 @@ const UI = {
 
     if (sScore > nScore) {
       winnerBlock.textContent = '👨 Scott remporte la partie !';
-      loveMsg.textContent     = '"Bravo Scott ! Mais Nolwen se rattrapera la prochaine fois… ou pas 😉"';
+      loveMsg.textContent     = randomFrom(LOSER_MESSAGES_NOLWEN);
     } else if (nScore > sScore) {
       winnerBlock.textContent = '👩 Nolwen remporte la partie !';
-      loveMsg.textContent     = '"Quelle victoire Nolwen ! Scott, t\'as encore du boulot 😂"';
+      loveMsg.textContent     = randomFrom(LOSER_MESSAGES_SCOTT);
     } else {
       winnerBlock.textContent = '🤝 Égalité parfaite !';
-      loveMsg.textContent     = '"Vous êtes vraiment faits l\'un pour l\'autre — même score, même âme 💕"';
+      loveMsg.textContent     = randomFrom(DRAW_MESSAGES);
     }
 
     SFX.play('win');
@@ -612,6 +612,23 @@ const SFX = {
         [523, 659, 784, 1047, 1319].forEach((f, i) => this._tone(f, 'sine', 0.35, 0.2, i * 0.1));
         break;
       case 'next': this._tone(440, 'sine', 0.1, 0.1); break;
+      case 'meow':
+        // Miaou synthétique
+        if (!this.ctx) break;
+        { const t = this.ctx.currentTime;
+          const o = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(900, t);
+          o.frequency.exponentialRampToValueAtTime(600, t + 0.08);
+          o.frequency.exponentialRampToValueAtTime(750, t + 0.18);
+          o.frequency.exponentialRampToValueAtTime(500, t + 0.35);
+          g.gain.setValueAtTime(0.25, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          o.connect(g); g.connect(this.ctx.destination);
+          o.start(t); o.stop(t + 0.4);
+        }
+        break;
     }
   },
 };
@@ -673,10 +690,76 @@ function generateCode() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  CHAT REBONDISSANT (écran accueil)
+// ═══════════════════════════════════════════════════════════
+const CatBounce = {
+  el: null,
+  x: 0, y: 0,
+  vx: 2.8, vy: 2.2,
+  size: 80,
+  raf: null,
+  active: false,
+  lastMeow: 0,
+
+  init() {
+    this.el = document.getElementById('cat-bounce');
+    if (!this.el) return;
+    this.x = Math.random() * (window.innerWidth  - this.size);
+    this.y = Math.random() * (window.innerHeight - this.size);
+    this.el.style.display = 'block';
+    this.active = true;
+    this.loop();
+  },
+
+  stop() {
+    this.active = false;
+    if (this.raf) cancelAnimationFrame(this.raf);
+    if (this.el) this.el.style.display = 'none';
+  },
+
+  loop() {
+    if (!this.active) return;
+    const W = window.innerWidth  - this.size;
+    const H = window.innerHeight - this.size;
+    const now = Date.now();
+
+    this.x += this.vx;
+    this.y += this.vy;
+
+    let bounced = false;
+    if (this.x <= 0)  { this.x = 0;  this.vx =  Math.abs(this.vx); bounced = true; }
+    if (this.x >= W)  { this.x = W;  this.vx = -Math.abs(this.vx); bounced = true; }
+    if (this.y <= 0)  { this.y = 0;  this.vy =  Math.abs(this.vy); bounced = true; }
+    if (this.y >= H)  { this.y = H;  this.vy = -Math.abs(this.vy); bounced = true; }
+
+    if (bounced && now - this.lastMeow > 400) {
+      this.lastMeow = now;
+      SFX.play('meow');
+      this.el.style.borderColor = 'var(--gold)';
+      setTimeout(() => { if (this.el) this.el.style.borderColor = 'var(--pink)'; }, 300);
+    }
+
+    this.el.style.left = this.x + 'px';
+    this.el.style.top  = this.y + 'px';
+    this.raf = requestAnimationFrame(() => this.loop());
+  },
+};
+
+// ═══════════════════════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   initHearts();
+  CatBounce.init();
 
-  // Firebase configuré ✓
+  // Stopper le chat quand on quitte l'accueil
+  const origShowScreen = App.showScreen.bind(App);
+  App.showScreen = function(id) {
+    origShowScreen(id);
+    if (id === 'screen-welcome') {
+      CatBounce.init();
+    } else {
+      CatBounce.stop();
+    }
+  };
 });
