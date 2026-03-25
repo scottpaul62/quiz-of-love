@@ -798,8 +798,14 @@ const CatBounce = {
     if (bounced && now - this.lastMeow > 400) {
       this.lastMeow = now;
       SFX.play('meow');
-      this.el.style.filter = 'drop-shadow(0 0 20px rgba(255,215,0,0.9)) drop-shadow(0 0 40px rgba(255,107,157,0.7))';
-      setTimeout(() => { if (this.el) this.el.style.filter = 'drop-shadow(0 0 12px rgba(255,107,157,0.5)) drop-shadow(0 0 24px rgba(199,125,255,0.3))'; }, 350);
+      this.el.style.borderColor = 'rgba(255,215,0,0.95)';
+      this.el.style.boxShadow = '0 0 24px rgba(255,215,0,0.8), 0 0 48px rgba(255,107,157,0.5)';
+      setTimeout(() => {
+        if (this.el) {
+          this.el.style.borderColor = 'rgba(255,107,157,0.8)';
+          this.el.style.boxShadow = '0 0 18px rgba(255,107,157,0.6), 0 0 36px rgba(199,125,255,0.35)';
+        }
+      }, 350);
     }
 
     this.el.style.left = this.x + 'px';
