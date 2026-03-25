@@ -53,6 +53,7 @@ html, body {
   position: absolute;
   bottom: -60px;
   font-size: var(--size, 24px);
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
   animation: floatUp var(--dur, 8s) ease-in var(--delay, 0s) infinite;
   opacity: 0;
   user-select: none;

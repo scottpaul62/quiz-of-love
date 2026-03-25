@@ -831,7 +831,18 @@ const Confetti = {
 // ═══════════════════════════════════════════════════════════
 function initHearts() {
   const container = document.getElementById('hearts-bg');
-  const hearts = ['❤️', '💕', '💗', '💓', '💖', '✨', '🌸', '💝', '🌹'];
+  // Use unicode escapes to avoid mojibake on some cached/encoded versions.
+  const hearts = [
+    '\u2764\uFE0F', // ❤️
+    '\u{1F495}',    // 💕
+    '\u{1F497}',    // 💗
+    '\u{1F493}',    // 💓
+    '\u{1F496}',    // 💖
+    '\u2728',       // ✨
+    '\u{1F338}',    // 🌸
+    '\u{1F49D}',    // 💝
+    '\u{1F339}',    // 🌹
+  ];
   for (let i = 0; i < 20; i++) {
     const h = document.createElement('div');
     h.className = 'heart-particle';
