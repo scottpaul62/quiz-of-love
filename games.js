@@ -75,16 +75,31 @@ const GameHub = {
     if (!isFirebaseReady()) return;
     if (this.roomRef) this.roomRef.off();
     this.roomRef = db.ref('games/' + code);
+
+    // Déconnexion brutale → signaler aux autres
+    this._leftRef = db.ref('games/' + code + '/leftBy');
+    this._leftRef.onDisconnect().set(this.player);
+
     this.roomRef.on('value', snap => {
       if (!snap.exists()) return;
       const data = snap.val();
+
+      // ── Quelqu'un a quitté ──
+      if (data.leftBy && data.leftBy !== GameHub.player) {
+        const name = data.leftBy === 'scott' ? 'Scott' : 'Nolwen';
+        if (GameHub._leftRef) { GameHub._leftRef.onDisconnect().cancel(); GameHub._leftRef = null; }
+        if (GameHub.roomRef)  { GameHub.roomRef.off(); GameHub.roomRef = null; }
+        App.showScreen('screen-setup');
+        setTimeout(() => App.toast(`${name} a quitté 👋`), 200);
+        return;
+      }
+
       if (data.host)  setGameDot(data.host,  true);
       if (data.guest) setGameDot(data.guest, true);
 
       if (data.status === 'lobby' && data.host && data.guest) {
         document.getElementById('game-lobby-waiting').classList.add('hidden');
         if (this.isHost) {
-          // Lancer le jeu selon le type
           const gs = GameHub.initState(data.type);
           this.roomRef.update({ status: 'playing', gameState: gs });
         }
@@ -117,12 +132,19 @@ const GameHub = {
   },
 
   exitLobby() {
-    if (this.roomRef) this.roomRef.off();
+    if (this._leftRef) { this._leftRef.onDisconnect().cancel(); this._leftRef = null; }
+    if (this.roomRef)  { this.roomRef.off(); this.roomRef = null; }
     App.showScreen('screen-setup');
   },
 
   exitGame() {
-    if (this.roomRef) this.roomRef.off();
+    if (this._leftRef) {
+      this._leftRef.onDisconnect().cancel();
+      // Prévenir l'autre joueur explicitement
+      db.ref('games/' + this.roomCode + '/leftBy').set(this.player).catch(() => {});
+      this._leftRef = null;
+    }
+    if (this.roomRef) { this.roomRef.off(); this.roomRef = null; }
     App.showScreen('screen-setup');
     SFX.play('select');
   },
@@ -163,15 +185,15 @@ const Morpion = {
 
     const board = document.getElementById('morpion-board');
     board.innerHTML = '';
-    const symbols = { scott: '❤️', nolwen: '💜' };
+    const symbols = { scott: '💙', nolwen: '🩷' };
     // Firebase retourne parfois un objet {0:x,1:x,...} au lieu d'un array
     const boardArr = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
     boardArr.forEach((cell, i) => {
       const empty = !cell || cell === '_';
       const btn = document.createElement('button');
-      btn.className = 'morpion-cell' + (!empty ? ' taken' : '') + (isMyTurn && empty && !gs.winner ? ' playable' : '');
+      btn.className = 'morpion-cell' + (!empty ? ' taken' : '') + (isMyTurn && empty && !hasWin ? ' playable' : '');
       btn.textContent = empty ? '' : (symbols[cell] || cell);
-      if (empty && isMyTurn && !gs.winner) btn.onclick = () => this.play(i, gs, data);
+      if (empty && isMyTurn && !hasWin) btn.onclick = () => this.play(i, gs, data);
       board.appendChild(btn);
     });
 
@@ -266,7 +288,7 @@ const P4 = {
     const boardArr4 = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
     const board4 = document.getElementById('p4-board');
     board4.innerHTML = '';
-    const colors = { scott: '🔴', nolwen: '💜' };
+    const colors = { scott: '💙', nolwen: '🩷' };
     for (let r = 0; r < this.ROWS; r++) {
       for (let c = 0; c < this.COLS; c++) {
         const cell = document.createElement('div');
@@ -431,7 +453,7 @@ const PFC = {
       const snap = await GameHub.roomRef.get();
       const d    = snap.val();
       const gc   = d.gameState.choices;
-      if (gc.scott && gc.nolwen) {
+      if (gc.scott && gc.scott !== '_' && gc.nolwen && gc.nolwen !== '_') {
         const w = this.getWinner(gc.scott, gc.nolwen);
         const newScores = { scott: sc, nolwen: sn };
         if (w !== 'draw') newScores[w]++;
@@ -543,7 +565,7 @@ const VOD = {
     await GameHub.roomRef.update({
       'gameState/turn':   gs.turn === 'scott' ? 'nolwen' : 'scott',
       'gameState/status': 'choosing',
-      'gameState/pick':   null,
+      'gameState/pick':   '_',
     });
   },
 };

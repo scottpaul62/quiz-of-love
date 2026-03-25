@@ -997,14 +997,12 @@ html, body {
   position: fixed;
   width: 90px;
   height: auto;
-  border-radius: 12px;
-  background: transparent;
-  filter: drop-shadow(0 0 12px rgba(255, 107, 157, 0.5)) drop-shadow(0 0 24px rgba(199, 125, 255, 0.3));
+  mix-blend-mode: screen;
+  filter: drop-shadow(0 0 14px rgba(255, 107, 157, 0.7)) drop-shadow(0 0 28px rgba(199, 125, 255, 0.4));
   pointer-events: none;
   z-index: 5;
   transition: filter 0.2s;
   display: none;
-  image-rendering: auto;
 }
 
 /* ═══════════════════════════════════════

@@ -148,14 +148,40 @@ const App = {
     if (!isFirebaseReady()) return;
     if (State.roomRef) State.roomRef.off();
     State.roomRef = db.ref('rooms/' + code);
+
+    // Déconnexion brutale (fermeture onglet) → signaler aux autres
+    State._leftRef = db.ref('rooms/' + code + '/leftBy');
+    State._leftRef.onDisconnect().set(State.player);
+
     State.roomRef.on('value', snap => {
       if (!snap.exists()) return;
       App.handleRoomUpdate(snap.val());
     });
   },
 
+  // ─── Quitter proprement ──────────────────────────────────
+  leaveRoom() {
+    if (State._leftRef) {
+      State._leftRef.onDisconnect().cancel();
+      State._leftRef.set(State.player).catch(() => {});
+      State._leftRef = null;
+    }
+    if (State.roomRef) { State.roomRef.off(); State.roomRef = null; }
+    App.showScreen('screen-setup');
+  },
+
   handleRoomUpdate(data) {
     const status = data.status;
+
+    // ── Quelqu'un a quitté ──
+    if (data.leftBy && data.leftBy !== State.player) {
+      const name = data.leftBy === 'scott' ? 'Scott' : 'Nolwen';
+      if (State._leftRef) { State._leftRef.onDisconnect().cancel(); State._leftRef = null; }
+      if (State.roomRef) { State.roomRef.off(); State.roomRef = null; }
+      App.showScreen('screen-setup');
+      setTimeout(() => App.toast(`${name} a quitté la partie 👋`), 200);
+      return;
+    }
 
     // Toujours : mise à jour des indicateurs de connexion
     if (data.host)  UI.setPlayerDot(data.host,  true);
@@ -401,6 +427,10 @@ const App = {
       UI.setPlayerDot(p, false);
       document.getElementById('pstatus-' + p)?.classList.remove('connected');
     });
+
+    // Annuler le handler de déconnexion proprement
+    if (State._leftRef) { State._leftRef.onDisconnect().cancel(); State._leftRef = null; }
+    if (State.roomRef)  { State.roomRef.off(); State.roomRef = null; }
 
     App.showScreen('screen-welcome');
     SFX.play('select');
