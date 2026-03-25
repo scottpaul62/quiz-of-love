@@ -1,11 +1,11 @@
-// ═══════════════════════════════════════════════════════════
-//  QUIZ OF LOVE — Logique principale
-//  Scott & Nolwen Edition 💕
-// ═══════════════════════════════════════════════════════════
+﻿// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  QUIZ OF LOVE â€” Logique principale
+//  Scott & Nolwen Edition ðŸ’•
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// ─── CONFIG FIREBASE ────────────────────────────────────────
-// ⚠️ REMPLACE CES VALEURS par celles de ton projet Firebase
-// (voir README.md pour les instructions étape par étape)
+// â”€â”€â”€ CONFIG FIREBASE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// âš ï¸ REMPLACE CES VALEURS par celles de ton projet Firebase
+// (voir README.md pour les instructions Ã©tape par Ã©tape)
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyC6AlMxLlTGu43L7A4BC33AG4TfmRe2VFQ",
   authDomain:        "scott-et-nolwen.firebaseapp.com",
@@ -16,7 +16,7 @@ const FIREBASE_CONFIG = {
   appId:             "1:611805730130:web:0cac759f5c75ecd105968b",
   measurementId:     "G-9FERWG1TWP"
 };
-// ────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 let db = null;
 const isFirebaseReady = () => db !== null && FIREBASE_CONFIG.apiKey !== "REMPLACE_ICI";
@@ -27,10 +27,10 @@ try {
     db = firebase.database();
   }
 } catch (e) {
-  console.warn("Firebase non configuré :", e.message);
+  console.warn("Firebase non configurÃ© :", e.message);
 }
 
-// ─── ÉTAT GLOBAL ────────────────────────────────────────────
+// â”€â”€â”€ Ã‰TAT GLOBAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const State = {
   player:        null,   // 'scott' | 'nolwen'
   roomCode:      null,
@@ -42,27 +42,28 @@ const State = {
   timerInterval: null,
   myAnswer:      null,
   computing:     false,  // garde anti-doublon pour computeResult
+  lastMiniLeftAt: 0,
 };
 
 const MODE_META = {
-  connaissance: { emoji: "🧠", label: "Connaissance" },
-  hot:          { emoji: "🔥", label: "Hot & Spicy"  },
-  couple:       { emoji: "💕", label: "Couple Goals"  },
-  defi:         { emoji: "🎭", label: "Défi Fou"      },
+  connaissance: { emoji: "ðŸ§ ", label: "Connaissance" },
+  hot:          { emoji: "ðŸ”¥", label: "Hot & Spicy"  },
+  couple:       { emoji: "ðŸ’•", label: "Couple Goals"  },
+  defi:         { emoji: "ðŸŽ­", label: "DÃ©fi Fou"      },
 };
 
-// ═══════════════════════════════════════════════════════════
-//  APP — Actions principales
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  APP â€” Actions principales
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const App = {
 
-  // ─── Navigation ─────────────────────────────────────────
+  // â”€â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
   },
 
-  // ─── Choix du joueur ────────────────────────────────────
+  // â”€â”€â”€ Choix du joueur â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   selectPlayer(name) {
     State.player = name;
     document.querySelectorAll('.player-card').forEach(c => {
@@ -73,24 +74,28 @@ const App = {
     card.classList.add('selected');
     card.querySelector('.player-check').classList.remove('hidden');
     document.getElementById('room-options').classList.remove('hidden');
-    const jeux = document.getElementById('autres-jeux-section');
-    if (jeux) jeux.classList.remove('hidden');
     SFX.play('select');
   },
 
-  // ─── Créer une salle ────────────────────────────────────
+  // â”€â”€â”€ CrÃ©er une salle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async createRoom() {
-    if (!State.player) { App.toast("Choisis d'abord ton nom ! 😊"); return; }
+    if (!State.player) { App.toast("Choisis d'abord ton nom ! ðŸ˜Š"); return; }
 
     const code = generateCode();
     State.roomCode = code;
     State.isHost   = true;
+    State.lastMiniLeftAt = 0;
 
     const roomData = {
       host:          State.player,
       guest:         null,
       status:        "lobby",
+      activeFlow:    "lobby",
       mode:          null,
+      miniType:      "_",
+      miniSession:   0,
+      miniLeftBy:    "_",
+      miniLeftAt:    0,
       currentQ:      0,
       questionOrder: [],
       scores:        { scott: 0, nolwen: 0 },
@@ -108,29 +113,30 @@ const App = {
         App.setupListener(code);
         SFX.play('create');
       } catch (e) {
-        App.toast("Erreur Firebase 😕 Vérifie ta configuration.");
+        App.toast("Erreur Firebase ðŸ˜• VÃ©rifie ta configuration.");
       }
     }
   },
 
-  // ─── Rejoindre une salle ────────────────────────────────
+  // â”€â”€â”€ Rejoindre une salle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async joinRoom() {
-    if (!State.player) { App.toast("Choisis d'abord ton nom ! 😊"); return; }
+    if (!State.player) { App.toast("Choisis d'abord ton nom ! ðŸ˜Š"); return; }
 
     const input = document.getElementById('join-code-input');
     const code  = input.value.trim().toUpperCase();
-    if (code.length !== 6) { App.toast("Code à 6 caractères requis !"); return; }
+    if (code.length !== 6) { App.toast("Code Ã  6 caractÃ¨res requis !"); return; }
 
     State.roomCode = code;
     State.isHost   = false;
+    State.lastMiniLeftAt = 0;
 
     if (isFirebaseReady()) {
       try {
         const snap = await db.ref('rooms/' + code).get();
-        if (!snap.exists()) { App.toast("Code introuvable 🔍 Vérifie le code !"); return; }
+        if (!snap.exists()) { App.toast("Code introuvable ðŸ” VÃ©rifie le code !"); return; }
         const data = snap.val();
         if (data.guest && data.guest !== State.player) {
-          App.toast("Cette salle est déjà complète !"); return;
+          App.toast("Cette salle est dÃ©jÃ  complÃ¨te !"); return;
         }
         await db.ref('rooms/' + code).update({ guest: State.player });
         App.showScreen('screen-lobby');
@@ -138,18 +144,18 @@ const App = {
         App.setupListener(code);
         SFX.play('join');
       } catch (e) {
-        App.toast("Erreur Firebase 😕 Vérifie ta configuration.");
+        App.toast("Erreur Firebase ðŸ˜• VÃ©rifie ta configuration.");
       }
     }
   },
 
-  // ─── Listener Firebase central ──────────────────────────
+  // â”€â”€â”€ Listener Firebase central â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   setupListener(code) {
     if (!isFirebaseReady()) return;
     if (State.roomRef) State.roomRef.off();
     State.roomRef = db.ref('rooms/' + code);
 
-    // Déconnexion brutale (fermeture onglet) → signaler aux autres
+    // DÃ©connexion brutale (fermeture onglet) â†’ signaler aux autres
     State._leftRef = db.ref('rooms/' + code + '/leftBy');
     State._leftRef.onDisconnect().set(State.player);
 
@@ -159,54 +165,144 @@ const App = {
     });
   },
 
-  // ─── Quitter proprement ──────────────────────────────────
+  // â”€â”€â”€ Quitter proprement â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   leaveRoom() {
+    App.stopTimer();
+    if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function') {
+      GameHub.cleanup();
+    }
     if (State._leftRef) {
       State._leftRef.onDisconnect().cancel();
       State._leftRef.set(State.player).catch(() => {});
       State._leftRef = null;
     }
     if (State.roomRef) { State.roomRef.off(); State.roomRef = null; }
+    State.roomCode = null;
+    State.isHost = false;
+    State.selectedMode = null;
+    State.mode = null;
+    State.myAnswer = null;
+    State.computing = false;
+    State.lastStatus = null;
     App.showScreen('screen-setup');
   },
 
-  handleRoomUpdate(data) {
-    const status = data.status;
+  async launchMiniGame(type) {
+    if (!State.roomRef || !State.roomCode) {
+      App.toast("Rejoins d'abord le salon avec un code.");
+      return;
+    }
+    if (!isFirebaseReady()) {
+      App.toast("Firebase non configure.");
+      return;
+    }
+    const roomSnap = await State.roomRef.get();
+    const roomData = roomSnap.val() || {};
+    if (!roomData.host || !roomData.guest) {
+      App.toast("Attends que les 2 joueurs soient connectes.");
+      return;
+    }
+    await State.roomRef.update({
+      status:      'lobby',
+      activeFlow:  'mini',
+      miniType:    type,
+      miniSession: Date.now(),
+      miniLeftBy:  '_',
+      miniLeftAt:  0,
+    });
+    SFX.play('start');
+  },
 
-    // ── Quelqu'un a quitté ──
+  async backToLobby() {
+    App.stopTimer();
+    State.myAnswer = null;
+    State.computing = false;
+    State.lastStatus = 'lobby';
+    if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function') {
+      GameHub.cleanup();
+    }
+    if (State.roomRef) {
+      await State.roomRef.update({
+        status:      'lobby',
+        activeFlow:  'lobby',
+        miniType:    '_',
+        miniSession: 0,
+        miniLeftBy:  '_',
+        miniLeftAt:  0,
+        answers:     { scott: null, nolwen: null },
+      });
+    }
+    App.showScreen('screen-lobby');
+  },
+
+  handleRoomUpdate(data) {
+    const status = data.status || 'lobby';
+
     if (data.leftBy && data.leftBy !== State.player) {
       const name = data.leftBy === 'scott' ? 'Scott' : 'Nolwen';
       if (State._leftRef) { State._leftRef.onDisconnect().cancel(); State._leftRef = null; }
       if (State.roomRef) { State.roomRef.off(); State.roomRef = null; }
+      if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function') {
+        GameHub.cleanup();
+      }
       App.showScreen('screen-setup');
-      setTimeout(() => App.toast(`${name} a quitté la partie 👋`), 200);
+      setTimeout(() => App.toast(`${name} a quitte la partie`), 200);
       return;
     }
 
-    // Toujours : mise à jour des indicateurs de connexion
-    if (data.host)  UI.setPlayerDot(data.host,  true);
+    if (data.host) UI.setPlayerDot(data.host, true);
     if (data.guest) UI.setPlayerDot(data.guest, true);
 
-    // ── LOBBY ──
-    if (status === 'lobby') {
-      const bothConnected = !!(data.host && data.guest);
-      document.getElementById('lobby-waiting').classList.toggle('hidden', bothConnected);
-      if (bothConnected) {
-        if (State.isHost) {
-          document.getElementById('mode-select').classList.remove('hidden');
-        } else {
-          document.getElementById('lobby-waiting').classList.remove('hidden');
-          document.getElementById('lobby-waiting-msg').textContent =
-            "En attente que l'hôte choisisse le mode… 🎮";
-        }
+    if (data.miniLeftAt && data.miniLeftAt !== State.lastMiniLeftAt) {
+      State.lastMiniLeftAt = data.miniLeftAt;
+      if (data.miniLeftBy && data.miniLeftBy !== '_' && data.miniLeftBy !== State.player) {
+        const miniName = data.miniLeftBy === 'scott' ? 'Scott' : 'Nolwen';
+        App.toast(`${miniName} a quitte le mini-jeu`);
       }
     }
 
-    // ── QUESTION ──
+    if (data.activeFlow === 'mini' && data.miniType && data.miniType !== '_') {
+      if (typeof GameHub !== 'undefined' && typeof GameHub.attachSharedMini === 'function') {
+        GameHub.attachSharedMini(data);
+      }
+      State.lastStatus = status;
+      return;
+    }
+    if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function' && GameHub.active) {
+      GameHub.cleanup();
+    }
+
+    if (status === 'lobby') {
+      const bothConnected = !!(data.host && data.guest);
+      const waiting = document.getElementById('lobby-waiting');
+      const modeSel = document.getElementById('mode-select');
+      const salonGames = document.getElementById('salon-games');
+      const startBtn = document.getElementById('start-game-btn');
+
+      App.showScreen('screen-lobby');
+      waiting.classList.toggle('hidden', bothConnected);
+      modeSel.classList.toggle('hidden', !bothConnected);
+      if (salonGames) salonGames.classList.toggle('hidden', !bothConnected);
+
+      if (bothConnected) {
+        if (State.isHost) {
+          startBtn.classList.remove('hidden');
+          waiting.classList.add('hidden');
+        } else {
+          startBtn.classList.add('hidden');
+          waiting.classList.remove('hidden');
+          document.getElementById('lobby-waiting-msg').textContent = "L'hote peut lancer un quiz ou un mini-jeu.";
+        }
+      } else {
+        startBtn.classList.add('hidden');
+        if (salonGames) salonGames.classList.add('hidden');
+        document.getElementById('lobby-waiting-msg').textContent = "En attente de l'autre joueur...";
+      }
+    }
+
     if (status === 'question') {
-      // Première fois qu'on voit cette question → afficher l'UI
       if (State.lastStatus !== 'question' || data.currentQ !== State._lastQ) {
-        State._lastQ   = data.currentQ;
+        State._lastQ = data.currentQ;
         State.myAnswer = null;
         State.computing = false;
         App.showScreen('screen-game');
@@ -214,11 +310,9 @@ const App = {
         App.startTimer(data);
       }
 
-      // Mise à jour des scores en live
-      document.getElementById('score-scott').textContent  = data.scores?.scott  ?? 0;
+      document.getElementById('score-scott').textContent = data.scores?.scott ?? 0;
       document.getElementById('score-nolwen').textContent = data.scores?.nolwen ?? 0;
 
-      // L'hôte calcule le résultat quand les deux ont répondu
       if (State.isHost && !State.computing &&
           data.answers?.scott !== null && data.answers?.nolwen !== null &&
           data.answers?.scott !== undefined && data.answers?.nolwen !== undefined) {
@@ -227,14 +321,12 @@ const App = {
       }
     }
 
-    // ── RÉSULTAT ──
     if (status === 'result' && State.lastStatus !== 'result') {
       App.stopTimer();
       App.showScreen('screen-result');
       UI.showRoundResult(data);
     }
 
-    // ── TERMINÉ ──
     if (status === 'finished' && State.lastStatus !== 'finished') {
       App.stopTimer();
       App.showScreen('screen-final');
@@ -245,7 +337,7 @@ const App = {
     State.lastStatus = status;
   },
 
-  // ─── Sélection du mode ──────────────────────────────────
+  // â”€â”€â”€ SÃ©lection du mode â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   selectMode(mode) {
     State.selectedMode = mode;
     document.querySelectorAll('.mode-card').forEach(c =>
@@ -255,15 +347,20 @@ const App = {
     SFX.play('select');
   },
 
-  // ─── Lancer le jeu ──────────────────────────────────────
+  // â”€â”€â”€ Lancer le jeu â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async startGame() {
     if (!State.selectedMode) { App.toast("Choisis un mode d'abord !"); return; }
-    if (!isFirebaseReady())  { App.toast("Firebase non configuré — voir README.md"); return; }
+    if (!isFirebaseReady())  { App.toast("Firebase non configurÃ© â€” voir README.md"); return; }
 
     const order = getQuestionOrder(State.selectedMode);
     await State.roomRef.update({
       status:        'question',
+      activeFlow:    'quiz',
       mode:          State.selectedMode,
+      miniType:      '_',
+      miniSession:   0,
+      miniLeftBy:    '_',
+      miniLeftAt:    0,
       currentQ:      0,
       questionOrder: order,
       scores:        { scott: 0, nolwen: 0 },
@@ -273,12 +370,12 @@ const App = {
     SFX.play('start');
   },
 
-  // ─── Soumettre une réponse ──────────────────────────────
+  // â”€â”€â”€ Soumettre une rÃ©ponse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async submitAnswer(index) {
-    if (State.myAnswer !== null) return; // déjà répondu
+    if (State.myAnswer !== null) return; // dÃ©jÃ  rÃ©pondu
     State.myAnswer = index;
 
-    // Feedback visuel immédiat
+    // Feedback visuel immÃ©diat
     document.querySelectorAll('.answer-btn').forEach((b, i) => {
       b.disabled = true;
       if (i === index) b.classList.add('selected');
@@ -290,11 +387,11 @@ const App = {
       await State.roomRef.update({
         [`answers/${State.player}`]: index,
       });
-      // Le listener global détectera que les deux ont répondu et appellera computeResult
+      // Le listener global dÃ©tectera que les deux ont rÃ©pondu et appellera computeResult
     }
   },
 
-  // ─── Calculer le résultat (hôte seulement) ──────────────
+  // â”€â”€â”€ Calculer le rÃ©sultat (hÃ´te seulement) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async computeResult(data) {
     const qIndex   = data.questionOrder[data.currentQ];
     const question = getQuestion(data.mode, qIndex);
@@ -324,7 +421,7 @@ const App = {
     await State.roomRef.update({ status: 'result', scores });
   },
 
-  // ─── Question suivante ───────────────────────────────────
+  // â”€â”€â”€ Question suivante â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   async nextQuestion() {
     if (!State.isHost || !isFirebaseReady()) return;
     const snap = await State.roomRef.get();
@@ -344,7 +441,7 @@ const App = {
     SFX.play('next');
   },
 
-  // ─── Timer ───────────────────────────────────────────────
+  // â”€â”€â”€ Timer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   startTimer(data) {
     App.stopTimer();
     const TOTAL = 15;
@@ -379,15 +476,15 @@ const App = {
     if (State.timerInterval) { clearInterval(State.timerInterval); State.timerInterval = null; }
   },
 
-  // ─── Copier le code ──────────────────────────────────────
+  // â”€â”€â”€ Copier le code â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   copyCode() {
     if (!State.roomCode) return;
     navigator.clipboard.writeText(State.roomCode)
-      .then(() => App.toast("Code copié ! 📋"))
+      .then(() => App.toast("Code copiÃ© ! ðŸ“‹"))
       .catch(() => App.toast("Code : " + State.roomCode));
   },
 
-  // ─── Toast ───────────────────────────────────────────────
+  // â”€â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   toast(msg, duration = 2800) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -400,10 +497,13 @@ const App = {
     }, duration);
   },
 
-  // ─── Recommencer ─────────────────────────────────────────
+  // â”€â”€â”€ Recommencer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   restart() {
     App.stopTimer();
     if (State.roomRef) State.roomRef.off();
+    if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function') {
+      GameHub.cleanup();
+    }
 
     Object.assign(State, {
       player: null, roomCode: null, isHost: false, mode: null,
@@ -418,9 +518,11 @@ const App = {
     document.getElementById('room-options').classList.add('hidden');
     document.getElementById('join-code-input').value = '';
     document.getElementById('mode-select').classList.add('hidden');
+    const salonGames = document.getElementById('salon-games');
+    if (salonGames) salonGames.classList.add('hidden');
     document.getElementById('room-code-display').classList.add('hidden');
     document.getElementById('lobby-waiting').classList.remove('hidden');
-    document.getElementById('lobby-waiting-msg').textContent = "En attente de l'autre joueur…";
+    document.getElementById('lobby-waiting-msg').textContent = "En attente de l'autre joueurâ€¦";
     document.getElementById('start-game-btn').classList.add('hidden');
     document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
     ['scott', 'nolwen'].forEach(p => {
@@ -428,7 +530,7 @@ const App = {
       document.getElementById('pstatus-' + p)?.classList.remove('connected');
     });
 
-    // Annuler le handler de déconnexion proprement
+    // Annuler le handler de dÃ©connexion proprement
     if (State._leftRef) { State._leftRef.onDisconnect().cancel(); State._leftRef = null; }
     if (State.roomRef)  { State.roomRef.off(); State.roomRef = null; }
 
@@ -437,9 +539,9 @@ const App = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-//  UI — Rendu de l'interface
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  UI â€” Rendu de l'interface
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const UI = {
 
   showRoomCode(code) {
@@ -464,23 +566,23 @@ const UI = {
     document.getElementById('score-scott').textContent      = data.scores?.scott  ?? 0;
     document.getElementById('score-nolwen').textContent     = data.scores?.nolwen ?? 0;
 
-    // Étiquette de ronde
+    // Ã‰tiquette de ronde
     const label = document.getElementById('round-label');
     if (question.type === 'match') {
-      label.textContent = "Choisissez votre préférence ! 💕";
+      label.textContent = "Choisissez votre prÃ©fÃ©rence ! ðŸ’•";
     } else {
       const isHostQ   = data.currentQ % 2 === 0;
       const owner     = isHostQ ? data.host : data.guest;
       const ownerName = owner.charAt(0).toUpperCase() + owner.slice(1);
       label.textContent = State.player === owner
-        ? `C'est ta question, ${ownerName} ! Réponds honnêtement 🎯`
-        : `Qu'est-ce que ${ownerName} va répondre ? Devine ! 🤔`;
+        ? `C'est ta question, ${ownerName} ! RÃ©ponds honnÃªtement ðŸŽ¯`
+        : `Qu'est-ce que ${ownerName} va rÃ©pondre ? Devine ! ðŸ¤”`;
     }
 
     // Question
     document.getElementById('question-text').textContent = question.q;
 
-    // Réponses
+    // RÃ©ponses
     const grid = document.getElementById('answers-grid');
     grid.innerHTML = '';
     question.a.forEach((answer, i) => {
@@ -500,7 +602,7 @@ const UI = {
     const aScott   = data.answers.scott;
     const aNolwen  = data.answers.nolwen;
 
-    const fmt = (a) => (a !== null && a >= 0) ? question.a[a] : "⏱️ Temps écoulé";
+    const fmt = (a) => (a !== null && a >= 0) ? question.a[a] : "â±ï¸ Temps Ã©coulÃ©";
     document.getElementById('reveal-scott-answer').textContent  = fmt(aScott);
     document.getElementById('reveal-nolwen-answer').textContent = fmt(aNolwen);
 
@@ -523,7 +625,7 @@ const UI = {
       const ownerA    = owner   === 'scott' ? aScott  : aNolwen;
       const guesserA  = guesser === 'scott' ? aScott  : aNolwen;
       isMatch = ownerA >= 0 && guesserA >= 0 && ownerA === guesserA;
-      // Owner: toujours "match" (il répond sur lui-même)
+      // Owner: toujours "match" (il rÃ©pond sur lui-mÃªme)
       const ownerReveal   = document.getElementById('reveal-' + owner);
       const guesserReveal = document.getElementById('reveal-' + guesser);
       ownerReveal.classList.add('match');
@@ -536,15 +638,15 @@ const UI = {
     const msg   = document.getElementById('result-message');
 
     if (isMatch) {
-      anim.textContent  = '💞';
-      title.textContent = 'Vous êtes synchronisés !';
+      anim.textContent  = 'ðŸ’ž';
+      title.textContent = 'Vous Ãªtes synchronisÃ©s !';
       msg.textContent   = question.type === 'match'
-        ? 'Même réponse — vous vous connaissez parfaitement !'
-        : 'Bonne devinette — connexion extraordinaire ! 🔮';
+        ? 'MÃªme rÃ©ponse â€” vous vous connaissez parfaitement !'
+        : 'Bonne devinette â€” connexion extraordinaire ! ðŸ”®';
       SFX.play('correct');
     } else {
-      anim.textContent  = '😂';
-      title.textContent = 'Réponses différentes !';
+      anim.textContent  = 'ðŸ˜‚';
+      title.textContent = 'RÃ©ponses diffÃ©rentes !';
       msg.textContent   = randomFrom(TROLL_MESSAGES);
       SFX.play('wrong');
     }
@@ -552,7 +654,7 @@ const UI = {
     document.getElementById('result-score-scott').textContent  = data.scores.scott  || 0;
     document.getElementById('result-score-nolwen').textContent = data.scores.nolwen || 0;
 
-    // Bouton suivant : hôte seulement
+    // Bouton suivant : hÃ´te seulement
     const nextBtn  = document.getElementById('next-btn');
     const nextWait = document.getElementById('next-waiting-msg');
     const isLast   = (data.currentQ + 1) >= QUESTIONS_PER_GAME;
@@ -560,7 +662,7 @@ const UI = {
     if (State.isHost) {
       nextBtn.classList.remove('hidden');
       nextWait.classList.add('hidden');
-      nextBtn.textContent = isLast ? 'Voir les résultats 🏆' : 'Question suivante ➔';
+      nextBtn.textContent = isLast ? 'Voir les rÃ©sultats ðŸ†' : 'Question suivante âž”';
     } else {
       nextBtn.classList.add('hidden');
       nextWait.classList.remove('hidden');
@@ -578,13 +680,13 @@ const UI = {
     const loveMsg     = document.getElementById('love-msg');
 
     if (sScore > nScore) {
-      winnerBlock.textContent = '👨 Scott remporte la partie !';
+      winnerBlock.textContent = 'ðŸ‘¨ Scott remporte la partie !';
       loveMsg.textContent     = randomFrom(LOSER_MESSAGES_NOLWEN);
     } else if (nScore > sScore) {
-      winnerBlock.textContent = '👩 Nolwen remporte la partie !';
+      winnerBlock.textContent = 'ðŸ‘© Nolwen remporte la partie !';
       loveMsg.textContent     = randomFrom(LOSER_MESSAGES_SCOTT);
     } else {
-      winnerBlock.textContent = '🤝 Égalité parfaite !';
+      winnerBlock.textContent = 'ðŸ¤ Ã‰galitÃ© parfaite !';
       loveMsg.textContent     = randomFrom(DRAW_MESSAGES);
     }
 
@@ -592,9 +694,9 @@ const UI = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-//  SFX — Sons (Web Audio API)
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  SFX â€” Sons (Web Audio API)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const SFX = {
   _ctx: null,
   get ctx() {
@@ -643,7 +745,7 @@ const SFX = {
         break;
       case 'next': this._tone(440, 'sine', 0.1, 0.1); break;
       case 'meow':
-        // Miaou de chaton synthétique
+        // Miaou de chaton synthÃ©tique
         if (!this.ctx) break;
         {
           const t   = this.ctx.currentTime;
@@ -652,14 +754,14 @@ const SFX = {
           // Oscillateur principal (voix)
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
-          // Filtre passe-bande pour sonorité nasale de chaton
+          // Filtre passe-bande pour sonoritÃ© nasale de chaton
           const filter = ctx.createBiquadFilter();
           filter.type = 'bandpass';
           filter.frequency.value = 1200;
           filter.Q.value = 1.5;
 
           osc.type = 'sawtooth';
-          // Glissement de fréquence : miii-aou
+          // Glissement de frÃ©quence : miii-aou
           osc.frequency.setValueAtTime(700,  t);
           osc.frequency.linearRampToValueAtTime(950, t + 0.07);
           osc.frequency.linearRampToValueAtTime(600, t + 0.18);
@@ -696,9 +798,9 @@ const SFX = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  CONFETTI
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const Confetti = {
   colors: ['#ff6b9d', '#c77dff', '#ffd700', '#ff4488', '#7b2fff', '#ffb3cc', '#4ade80', '#60a5fa'],
 
@@ -724,12 +826,12 @@ const Confetti = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-//  CŒURS FLOTTANTS (fond)
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  CÅ’URS FLOTTANTS (fond)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function initHearts() {
   const container = document.getElementById('hearts-bg');
-  const hearts = ['❤️', '💕', '💗', '💓', '💖', '✨', '🌸', '💝', '🌹'];
+  const hearts = ['â¤ï¸', 'ðŸ’•', 'ðŸ’—', 'ðŸ’“', 'ðŸ’–', 'âœ¨', 'ðŸŒ¸', 'ðŸ’', 'ðŸŒ¹'];
   for (let i = 0; i < 20; i++) {
     const h = document.createElement('div');
     h.className = 'heart-particle';
@@ -744,17 +846,17 @@ function initHearts() {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  UTILITAIRES
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function generateCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
 
-// ═══════════════════════════════════════════════════════════
-//  CHAT REBONDISSANT (écran accueil)
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  CHAT REBONDISSANT (Ã©cran accueil)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const CatBounce = {
   el: null,
   x: 0, y: 0,
@@ -814,9 +916,9 @@ const CatBounce = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  INIT
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 document.addEventListener('DOMContentLoaded', () => {
   initHearts();
   CatBounce.init();

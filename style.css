@@ -268,6 +268,26 @@ html, body {
 
 .btn-back:hover { color: var(--pink); }
 
+.btn-quit-salon {
+  margin: 2px auto 4px;
+  padding: 8px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  backdrop-filter: blur(8px);
+}
+
+.game-wrapper > .btn-back {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  padding: 8px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: rgba(23, 16, 45, 0.78);
+  backdrop-filter: blur(8px);
+}
+
 /* ═══════════════════════════════════════
    ÉCRAN SETUP
 ═══════════════════════════════════════ */
@@ -1084,6 +1104,14 @@ html, body {
   border-radius: var(--radius);
   padding: 12px 18px;
   backdrop-filter: blur(10px);
+}
+
+.mini-header .btn-back {
+  padding: 6px 10px;
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  background: rgba(23, 16, 45, 0.72);
+  white-space: nowrap;
 }
 
 .mini-title {

@@ -1,82 +1,73 @@
-// ═══════════════════════════════════════════════════════════
-//  QUIZ OF LOVE — Mini-jeux
-//  Morpion · Puissance 4 · PFC · Vérité/Défi · Uno · Bataille
-// ═══════════════════════════════════════════════════════════
+﻿// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  QUIZ OF LOVE â€” Mini-jeux
+//  Morpion Â· Puissance 4 Â· PFC Â· VÃ©ritÃ©/DÃ©fi Â· Uno Â· Bataille
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-// ─── HUB ────────────────────────────────────────────────────
+// â”€â”€â”€ HUB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const GameHub = {
   type: null,
   player: null,
   roomCode: null,
   isHost: false,
   roomRef: null,
+  _leftRef: null,
+  sessionId: 0,
+  active: false,
 
   select(type) {
-    if (!State.player) { App.toast("Choisis d'abord ton nom ! 😊"); return; }
-    this.type   = type;
+    if (!State.roomCode) { App.toast("Rejoins d'abord le salon avec le code."); return; }
+    App.launchMiniGame(type);
+  },
+
+  createRoom() {
+    if (!this.type) { App.toast("Choisis d'abord un mini-jeu."); return; }
+    App.launchMiniGame(this.type);
+  },
+
+  joinRoom() {
+    App.toast("Le code du mini-jeu est maintenant le meme que le salon.");
+  },
+
+  async attachSharedMini(roomData) {
+    if (!isFirebaseReady() || !State.roomCode || !State.player) return;
+
+    const nextType = roomData.miniType;
+    const nextSession = roomData.miniSession || Date.now();
+
+    if (this.active && this.sessionId === nextSession && this.type === nextType) {
+      return;
+    }
+
+    this.cleanup();
+    this.type = nextType;
     this.player = State.player;
+    this.roomCode = State.roomCode;
+    this.isHost = !!State.isHost;
+    this.sessionId = nextSession;
+    this.active = true;
 
-    const names = {
-      morpion:   'Morpion Love ❤️',
-      p4:        'Puissance 4 🔴',
-      pfc:       'Pierre Feuille Ciseaux ✊',
-      vod:       'Vérité ou Défi 🎭',
-      uno:       'Uno Love 🃏',
-      bataille:  'Bataille Navale 🚢',
-    };
-    document.getElementById('game-lobby-title').textContent = names[type] || type;
-    document.getElementById('game-create-join').classList.remove('hidden');
-    document.getElementById('game-lobby-waiting').classList.add('hidden');
-    document.getElementById('game-room-code-display').classList.add('hidden');
-    App.showScreen('screen-game-lobby');
-    SFX.play('select');
-  },
+    this.setupListener(this.roomCode);
 
-  async createRoom() {
-    const code = generateCode();
-    this.roomCode = code;
-    this.isHost   = true;
-    const roomData = {
-      host: this.player, guest: null,
-      type: this.type, status: 'lobby',
-      gameState: null, createdAt: Date.now(),
-    };
-    if (isFirebaseReady()) {
-      await db.ref('games/' + code).set(roomData);
+    if (this.isHost) {
+      const gs = this.initState(this.type);
+      await db.ref('games/' + this.roomCode).set({
+        host: roomData.host || 'scott',
+        guest: roomData.guest || 'nolwen',
+        type: this.type,
+        status: 'playing',
+        sessionId: this.sessionId,
+        gameState: gs,
+        leftBy: '_',
+        createdAt: Date.now(),
+      });
     }
-    document.getElementById('game-room-code-text').textContent = code;
-    document.getElementById('game-room-code-display').classList.remove('hidden');
-    document.getElementById('game-create-join').classList.add('hidden');
-    setGameDot(this.player, true);
-    this.setupListener(code);
-    SFX.play('create');
-  },
-
-  async joinRoom() {
-    const input = document.getElementById('game-join-input');
-    const code  = input.value.trim().toUpperCase();
-    if (code.length !== 6) { App.toast("Code à 6 caractères !"); return; }
-    this.roomCode = code;
-    this.isHost   = false;
-    if (isFirebaseReady()) {
-      const snap = await db.ref('games/' + code).get();
-      if (!snap.exists()) { App.toast("Code introuvable ! 🔍"); return; }
-      const data = snap.val();
-      this.type = data.type;
-      await db.ref('games/' + code).update({ guest: this.player });
-    }
-    document.getElementById('game-create-join').classList.add('hidden');
-    setGameDot(this.player, true);
-    this.setupListener(code);
-    SFX.play('join');
   },
 
   setupListener(code) {
     if (!isFirebaseReady()) return;
     if (this.roomRef) this.roomRef.off();
     this.roomRef = db.ref('games/' + code);
-
-    // Déconnexion brutale → signaler aux autres
+    if (this._leftRef) { this._leftRef.onDisconnect().cancel(); }
     this._leftRef = db.ref('games/' + code + '/leftBy');
     this._leftRef.onDisconnect().set(this.player);
 
@@ -84,26 +75,19 @@ const GameHub = {
       if (!snap.exists()) return;
       const data = snap.val();
 
-      // ── Quelqu'un a quitté ──
-      if (data.leftBy && data.leftBy !== GameHub.player) {
+      if (data.sessionId && this.sessionId && data.sessionId !== this.sessionId) return;
+
+      if (data.leftBy && data.leftBy !== '_' && data.leftBy !== GameHub.player) {
         const name = data.leftBy === 'scott' ? 'Scott' : 'Nolwen';
-        if (GameHub._leftRef) { GameHub._leftRef.onDisconnect().cancel(); GameHub._leftRef = null; }
-        if (GameHub.roomRef)  { GameHub.roomRef.off(); GameHub.roomRef = null; }
-        App.showScreen('screen-setup');
-        setTimeout(() => App.toast(`${name} a quitté 👋`), 200);
+        GameHub.cleanup();
+        App.showScreen('screen-lobby');
+        App.toast(`${name} a quitte le mini-jeu`);
         return;
       }
 
-      if (data.host)  setGameDot(data.host,  true);
+      if (data.host)  setGameDot(data.host, true);
       if (data.guest) setGameDot(data.guest, true);
 
-      if (data.status === 'lobby' && data.host && data.guest) {
-        document.getElementById('game-lobby-waiting').classList.add('hidden');
-        if (this.isHost) {
-          const gs = GameHub.initState(data.type);
-          this.roomRef.update({ status: 'playing', gameState: gs });
-        }
-      }
       if (data.status === 'playing' || data.status === 'setup') {
         const dispatch = { morpion: Morpion, p4: P4, pfc: PFC, vod: VOD, uno: Uno, bataille: BN };
         const game = dispatch[data.type];
@@ -113,12 +97,11 @@ const GameHub = {
   },
 
   initState(type) {
-    // Note: Firebase strip les valeurs null → on utilise '' à la place
     switch(type) {
       case 'morpion':  return { board: Array(9).fill('_'),  turn: 'scott', winner: '_', scores: {scott:0, nolwen:0} };
       case 'p4':       return { board: Array(42).fill('_'), turn: 'scott', winner: '_', scores: {scott:0, nolwen:0} };
       case 'pfc':      return { choices: {scott:'_', nolwen:'_'}, scores: {scott:0, nolwen:0}, round: 0 };
-      case 'vod':      return { turn: 'scott', pick: '', questionIdx: -1, status: 'choosing' };
+      case 'vod':      return { turn: 'scott', pick: '_', questionIdx: -1, status: 'choosing' };
       case 'uno':      return Uno.buildInitialState();
       case 'bataille': return { statusPhase: 'setup', shipsScott: 'none', shipsNolwen: 'none', shotsScott: 'none', shotsNolwen: 'none', turn: 'scott' };
       default:         return {};
@@ -126,31 +109,48 @@ const GameHub = {
   },
 
   copyCode() {
-    if (this.roomCode) navigator.clipboard.writeText(this.roomCode)
-      .then(() => App.toast("Code copié ! 📋"))
-      .catch(() => App.toast("Code : " + this.roomCode));
+    if (State.roomCode) navigator.clipboard.writeText(State.roomCode)
+      .then(() => App.toast('Code copie'))
+      .catch(() => App.toast('Code : ' + State.roomCode));
+  },
+
+  cleanup() {
+    if (this.roomRef) { this.roomRef.off(); this.roomRef = null; }
+    if (this._leftRef) { this._leftRef.onDisconnect().cancel(); this._leftRef = null; }
+    this.active = false;
+    this.sessionId = 0;
+    this.type = null;
+    setGameDot('scott', false);
+    setGameDot('nolwen', false);
   },
 
   exitLobby() {
-    if (this._leftRef) { this._leftRef.onDisconnect().cancel(); this._leftRef = null; }
-    if (this.roomRef)  { this.roomRef.off(); this.roomRef = null; }
-    App.showScreen('screen-setup');
+    App.showScreen('screen-lobby');
   },
 
-  exitGame() {
-    if (this._leftRef) {
-      this._leftRef.onDisconnect().cancel();
-      // Prévenir l'autre joueur explicitement
-      db.ref('games/' + this.roomCode + '/leftBy').set(this.player).catch(() => {});
-      this._leftRef = null;
+  async exitGame() {
+    if (this.roomRef) {
+      this.roomRef.update({ leftBy: this.player }).catch(() => {});
     }
-    if (this.roomRef) { this.roomRef.off(); this.roomRef = null; }
-    App.showScreen('screen-setup');
+
+    if (State.roomCode && isFirebaseReady()) {
+      await db.ref('rooms/' + State.roomCode).update({
+        status: 'lobby',
+        activeFlow: 'lobby',
+        miniType: '_',
+        miniSession: 0,
+        miniLeftBy: this.player || State.player || '_',
+        miniLeftAt: Date.now(),
+      }).catch(() => {});
+    }
+
+    this.cleanup();
+    App.showScreen('screen-lobby');
     SFX.play('select');
   },
 };
 
-// helper (utilise directement l'élément DOM, pas besoin de UI)
+// helper (utilise directement l'Ã©lÃ©ment DOM, pas besoin de UI)
 function setGameDot(player, on) {
   const d = document.getElementById('gdot-' + player);
   const c = document.getElementById('gpstatus-' + player);
@@ -158,9 +158,9 @@ function setGameDot(player, on) {
   if (c) c.classList.toggle('connected', on);
 }
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  MORPION LOVE
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const Morpion = {
   _lastBoard: null,
 
@@ -180,12 +180,12 @@ const Morpion = {
     const turnName = gs.turn === 'scott' ? 'Scott' : 'Nolwen';
     const hasWin = gs.winner && gs.winner !== '_';
     status.textContent = hasWin
-      ? (gs.winner === 'draw' ? 'Match nul !' : `${gs.winner === 'scott' ? 'Scott' : 'Nolwen'} gagne ! 🎉`)
-      : (isMyTurn ? 'À toi de jouer ! 🎯' : `Tour de ${turnName}…`);
+      ? (gs.winner === 'draw' ? 'Match nul !' : `${gs.winner === 'scott' ? 'Scott' : 'Nolwen'} gagne ! ðŸŽ‰`)
+      : (isMyTurn ? 'Ã€ toi de jouer ! ðŸŽ¯' : `Tour de ${turnName}â€¦`);
 
     const board = document.getElementById('morpion-board');
     board.innerHTML = '';
-    const symbols = { scott: '💙', nolwen: '🩷' };
+    const symbols = { scott: 'ðŸ’™', nolwen: 'ðŸ©·' };
     // Firebase retourne parfois un objet {0:x,1:x,...} au lieu d'un array
     const boardArr = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
     boardArr.forEach((cell, i) => {
@@ -201,8 +201,8 @@ const Morpion = {
     if (hasWin) {
       resultDiv.classList.remove('hidden');
       const msg = document.getElementById('morpion-result-msg');
-      msg.textContent = gs.winner === 'draw' ? '🤝 Match nul !' :
-        gs.winner === GameHub.player ? '🏆 Tu as gagné !' : '😅 Tu as perdu !';
+      msg.textContent = gs.winner === 'draw' ? 'ðŸ¤ Match nul !' :
+        gs.winner === GameHub.player ? 'ðŸ† Tu as gagnÃ© !' : 'ðŸ˜… Tu as perdu !';
       document.getElementById('morpion-replay-btn').classList.toggle('hidden', !GameHub.isHost);
       document.getElementById('morpion-replay-wait').classList.toggle('hidden', GameHub.isHost);
     } else {
@@ -246,9 +246,9 @@ const Morpion = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  PUISSANCE 4
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const P4 = {
   ROWS: 6, COLS: 7,
 
@@ -268,8 +268,8 @@ const P4 = {
     const status = document.getElementById('p4-status');
     const p4HasWin = gs.winner && gs.winner !== '_';
     status.textContent = p4HasWin
-      ? (gs.winner === 'draw' ? 'Grille pleine — match nul !' : `${gs.winner === 'scott' ? 'Scott' : 'Nolwen'} gagne ! 🎉`)
-      : (isMyTurn ? 'À toi de jouer ! 🎯' : `Tour de ${turnName}…`);
+      ? (gs.winner === 'draw' ? 'Grille pleine â€” match nul !' : `${gs.winner === 'scott' ? 'Scott' : 'Nolwen'} gagne ! ðŸŽ‰`)
+      : (isMyTurn ? 'Ã€ toi de jouer ! ðŸŽ¯' : `Tour de ${turnName}â€¦`);
 
     // Colonnes
     const colBtns = document.getElementById('p4-col-btns');
@@ -277,7 +277,7 @@ const P4 = {
     for (let c = 0; c < this.COLS; c++) {
       const btn = document.createElement('button');
       btn.className = 'p4-col-btn' + (isMyTurn && !p4HasWin ? ' active' : '');
-      btn.textContent = '▼';
+      btn.textContent = 'â–¼';
       btn.disabled = !isMyTurn || p4HasWin;
       const col = c;
       btn.onclick = () => this.drop(col, gs);
@@ -288,7 +288,7 @@ const P4 = {
     const boardArr4 = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
     const board4 = document.getElementById('p4-board');
     board4.innerHTML = '';
-    const colors = { scott: '💙', nolwen: '🩷' };
+    const colors = { scott: 'ðŸ’™', nolwen: 'ðŸ©·' };
     for (let r = 0; r < this.ROWS; r++) {
       for (let c = 0; c < this.COLS; c++) {
         const cell = document.createElement('div');
@@ -303,8 +303,8 @@ const P4 = {
     const res = document.getElementById('p4-result');
     if (p4HasWin) {
       res.classList.remove('hidden');
-      document.getElementById('p4-result-msg').textContent = gs.winner === 'draw' ? '🤝 Match nul !' :
-        gs.winner === GameHub.player ? '🏆 Tu as gagné !' : '😅 Tu as perdu !';
+      document.getElementById('p4-result-msg').textContent = gs.winner === 'draw' ? 'ðŸ¤ Match nul !' :
+        gs.winner === GameHub.player ? 'ðŸ† Tu as gagnÃ© !' : 'ðŸ˜… Tu as perdu !';
       document.getElementById('p4-replay-btn').classList.toggle('hidden', !GameHub.isHost);
       document.getElementById('p4-replay-wait').classList.toggle('hidden', GameHub.isHost);
     } else {
@@ -363,9 +363,9 @@ const P4 = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 //  PIERRE FEUILLE CISEAUX
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const PFC = {
   _myChoice: null,
 
@@ -383,7 +383,7 @@ const PFC = {
     const myChoice    = gs.choices[GameHub.player];
     const enemyPlayer = GameHub.player === 'scott' ? 'nolwen' : 'scott';
     const enemyChoice = gs.choices[enemyPlayer];
-    const emojis = { pierre: '✊', feuille: '🖐️', ciseaux: '✌️' };
+    const emojis = { pierre: 'âœŠ', feuille: 'ðŸ–ï¸', ciseaux: 'âœŒï¸' };
 
     const choicesEl  = document.getElementById('pfc-choices');
     const revealEl   = document.getElementById('pfc-reveal');
@@ -401,9 +401,9 @@ const PFC = {
       choicesEl.classList.add('hidden');
       revealEl.classList.add('hidden');
       waitingEl.classList.remove('hidden');
-      document.getElementById('pfc-status').textContent = `T'as choisi ${emojis[myChoice]} — en attente…`;
+      document.getElementById('pfc-status').textContent = `T'as choisi ${emojis[myChoice]} â€” en attenteâ€¦`;
     } else {
-      // Les deux ont choisi → révélation
+      // Les deux ont choisi â†’ rÃ©vÃ©lation
       choicesEl.classList.add('hidden');
       waitingEl.classList.add('hidden');
       revealEl.classList.remove('hidden');
@@ -413,24 +413,24 @@ const PFC = {
       const winner = this.getWinner(gs.choices.scott, gs.choices.nolwen);
       const resultEl = document.getElementById('pfc-round-result');
       if (winner === 'draw') {
-        resultEl.textContent = '🤝 Égalité !';
+        resultEl.textContent = 'ðŸ¤ Ã‰galitÃ© !';
         document.getElementById('pfc-status').textContent = 'Match nul !';
       } else {
         const wName = winner === 'scott' ? 'Scott' : 'Nolwen';
-        resultEl.textContent = winner === GameHub.player ? '🏆 Tu gagnes ce round !' : '😅 Tu perds ce round !';
+        resultEl.textContent = winner === GameHub.player ? 'ðŸ† Tu gagnes ce round !' : 'ðŸ˜… Tu perds ce round !';
         document.getElementById('pfc-status').textContent = `${wName} remporte ce round !`;
       }
 
-      // Check victoire générale (5 points)
+      // Check victoire gÃ©nÃ©rale (5 points)
       const sc = gs.scores.scott || 0, sn = gs.scores.nolwen || 0;
       if (sc >= 5 || sn >= 5) {
-        document.getElementById('pfc-status').textContent = `${sc>=5?'Scott':'Nolwen'} remporte la partie ! 🏆`;
+        document.getElementById('pfc-status').textContent = `${sc>=5?'Scott':'Nolwen'} remporte la partie ! ðŸ†`;
         choicesEl.classList.add('hidden');
       } else {
-        // Rejouer après 2.5s (hôte reset les choix)
+        // Rejouer aprÃ¨s 2.5s (hÃ´te reset les choix)
         if (GameHub.isHost) {
           setTimeout(async () => {
-            await GameHub.roomRef.update({ 'gameState/choices': { scott: '', nolwen: '' } });
+            await GameHub.roomRef.update({ 'gameState/choices': { scott: '_', nolwen: '_' } });
             this._myChoice = null;
           }, 2500);
         } else {
@@ -448,7 +448,7 @@ const PFC = {
 
     await GameHub.roomRef.update({ [`gameState/choices/${GameHub.player}`]: choice });
 
-    // Si les deux ont choisi, calculer scores (hôte)
+    // Si les deux ont choisi, calculer scores (hÃ´te)
     if (GameHub.isHost) {
       const snap = await GameHub.roomRef.get();
       const d    = snap.val();
@@ -470,43 +470,63 @@ const PFC = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-//  VÉRITÉ OU DÉFI
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  VÃ‰RITÃ‰ OU DÃ‰FI
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const VOD_DATA = {
   verite: [
-    "Quel est ton souvenir le plus gênant avec quelqu'un ?",
+    "Quel est ton souvenir le plus gÃªnant avec quelqu'un ?",
     "Qu'est-ce que tu n'oserais jamais faire devant moi ?",
-    "C'est quoi ton pire mensonge que t'as dit à quelqu'un ?",
-    "T'as déjà stalké quelqu'un sur les réseaux ? Qui ?",
+    "C'est quoi ton pire mensonge que t'as dit Ã  quelqu'un ?",
+    "T'as dÃ©jÃ  stalkÃ© quelqu'un sur les rÃ©seaux ? Qui ?",
     "Quelle est la chose la plus folle que t'as faite par amour ?",
     "Ton plus grand complexe ?",
-    "T'as déjà eu un crush sur un(e) ami(e) ? C'était qui ?",
+    "T'as dÃ©jÃ  eu un crush sur un(e) ami(e) ? C'Ã©tait qui ?",
     "Quel est le truc le plus nul que t'as fait pour impressionner quelqu'un ?",
-    "Si tu pouvais changer une chose chez toi, ça serait quoi ?",
-    "Quel est ton pire souvenir de soirée ?",
-    "T'as déjà menti à tes parents sur quelque chose de grave ?",
-    "Qu'est-ce que tu m'aurais caché si on se connaissait moins ?",
-    "Ton ex te recontacte ce soir — tu réponds quoi ?",
+    "Si tu pouvais changer une chose chez toi, Ã§a serait quoi ?",
+    "Quel est ton pire souvenir de soirÃ©e ?",
+    "T'as dÃ©jÃ  menti Ã  tes parents sur quelque chose de grave ?",
+    "Qu'est-ce que tu m'aurais cachÃ© si on se connaissait moins ?",
+    "Ton ex te recontacte ce soir â€” tu rÃ©ponds quoi ?",
     "Qu'est-ce que tes amis ne savent pas sur toi ?",
-    "Le truc qui t'énerve le plus chez moi ? Sois honnête 😬",
+    "Le truc qui t'Ã©nerve le plus chez moi ? Sois honnÃªte ðŸ˜¬",
+    "Le message un peu chaud que tu n'as jamais ose envoyer ?",
+    "Ton mood ideal pour une nuit a deux ?",
+    "Tu preferes quoi: teasing soft, tendresse ou full passion ?",
+    "Ton plus gros red flag en date romantique ?",
+    "Le compliment intime qui te fait fondre direct ?",
+    "Tu assumes plus les mots doux en vocal ou en face ?",
+    "Le fantasme soft que tu peux avouer ici ?",
+    "Ton type de baiser prefere quand ca devient intense ?",
+    "Si on coupe les telephones ce soir, on fait quoi en premier ?",
+    "Ton endroit prefere pour un calin long sans parler ?",
   ],
   defi: [
-    "Envoie un message à quelqu'un que t'as pas contacté depuis 6 mois 📱",
-    "Fais 10 pompes maintenant 💪",
-    "Chante le refrain d'une chanson à voix haute 🎤",
-    "Envoie-moi un selfie dans une position bizarre 📸",
-    "Dis 3 choses que t'aimes chez moi sans réfléchir ❤️",
-    "Fais une imitation de moi (envoie une vidéo) 😂",
-    "Envoie le dernier mème que t'as sauvegardé 📲",
-    "Dis-moi ton mdp Netflix (si t'en as un) 👀",
-    "Montre la 5ème photo de ta galerie 📷",
-    "Écris-moi un poème de 4 lignes en 60 secondes ✍️",
-    "Fais un TikTok de 10 secondes et montre-le moi 🎵",
-    "Appelle quelqu'un et dis 'je t'aime' avant de raccrocher 😂",
-    "Mange un truc bizarre qui traîne dans ta cuisine 🍴",
-    "Montre ta recherche Google la plus récente 🔍",
-    "Poste un selfie sans filtre dans ta story 📸",
+    "Envoie un message Ã  quelqu'un que t'as pas contactÃ© depuis 6 mois ðŸ“±",
+    "Fais 10 pompes maintenant ðŸ’ª",
+    "Chante le refrain d'une chanson Ã  voix haute ðŸŽ¤",
+    "Envoie-moi un selfie dans une position bizarre ðŸ“¸",
+    "Dis 3 choses que t'aimes chez moi sans rÃ©flÃ©chir â¤ï¸",
+    "Fais une imitation de moi (envoie une vidÃ©o) ðŸ˜‚",
+    "Envoie le dernier mÃ¨me que t'as sauvegardÃ© ðŸ“²",
+    "Dis-moi ton mdp Netflix (si t'en as un) ðŸ‘€",
+    "Montre la 5Ã¨me photo de ta galerie ðŸ“·",
+    "Ã‰cris-moi un poÃ¨me de 4 lignes en 60 secondes âœï¸",
+    "Fais un TikTok de 10 secondes et montre-le moi ðŸŽµ",
+    "Appelle quelqu'un et dis 'je t'aime' avant de raccrocher ðŸ˜‚",
+    "Mange un truc bizarre qui traÃ®ne dans ta cuisine ðŸ´",
+    "Montre ta recherche Google la plus rÃ©cente ðŸ”",
+    "Poste un selfie sans filtre dans ta story ðŸ“¸",
+    "Fais un vocal de 10 secondes ultra mignon et envoie-le.",
+    "Envoie un message: 'Soiree date soon ?' a ton/ta partenaire.",
+    "Dis trois choses tres attirantes chez l'autre, sans pause.",
+    "Fais une danse de 15 secondes en mode seduction fun.",
+    "Ecris une mini scene romantique de 2 lignes et lis-la.",
+    "Envoie une photo de ton 'look date ideale' du moment.",
+    "Fais une declaration dramatique style cinema pendant 20 secondes.",
+    "Lance un compliment improvise en rime.",
+    "Envoie un emoji qui resume ton niveau de desir actuel.",
+    "Defi duo: chacun dit une chose qu'il veut tester en couple ce mois-ci.",
   ],
 };
 
@@ -533,13 +553,13 @@ const VOD = {
       chooseEl.classList.remove('hidden');
       questionEl.classList.add('hidden');
       waitingEl.classList.toggle('hidden', isMyTurn);
-      if (!isMyTurn) document.getElementById('vod-waiting-msg').textContent = `${turnName} choisit…`;
+      if (!isMyTurn) document.getElementById('vod-waiting-msg').textContent = `${turnName} choisitâ€¦`;
     } else if (gs.status === 'question') {
       chooseEl.classList.add('hidden');
       waitingEl.classList.add('hidden');
       questionEl.classList.remove('hidden');
       const label = document.getElementById('vod-type-label');
-      label.textContent = gs.pick === 'verite' ? '🕊️ VÉRITÉ' : '🔥 DÉFI';
+      label.textContent = gs.pick === 'verite' ? 'ðŸ•Šï¸ VÃ‰RITÃ‰' : 'ðŸ”¥ DÃ‰FI';
       label.style.color = gs.pick === 'verite' ? '#60a5fa' : '#ff6b9d';
       document.getElementById('vod-question-text').textContent = gs.questionText || '...';
       const nextBtn = questionEl.querySelector('button');
@@ -570,12 +590,12 @@ const VOD = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-//  UNO LOVE (simplifié)
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  UNO LOVE (simplifiÃ©)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const UNO_COLORS  = ['rouge','violet','jaune','vert'];
 const UNO_VALUES  = ['0','1','2','3','4','5','6','7','8','9','Skip','+2'];
-const UNO_EMOJIS  = { rouge:'❤️', violet:'💜', jaune:'💛', vert:'💚' };
+const UNO_EMOJIS  = { rouge:'â¤ï¸', violet:'ðŸ’œ', jaune:'ðŸ’›', vert:'ðŸ’š' };
 const UNO_WILDS   = ['Wild','Wild+4'];
 
 const Uno = {
@@ -614,11 +634,11 @@ const Uno = {
     const top      = gs.pile[gs.pile.length - 1];
 
     document.getElementById('uno-status').textContent = gs.winner
-      ? (gs.winner === GameHub.player ? '🏆 Tu as gagné !' : '😅 Tu as perdu !')
-      : (isMyTurn ? '🎯 À toi de jouer !' : '⏳ Tour de l\'autre…');
+      ? (gs.winner === GameHub.player ? 'ðŸ† Tu as gagnÃ© !' : 'ðŸ˜… Tu as perdu !')
+      : (isMyTurn ? 'ðŸŽ¯ Ã€ toi de jouer !' : 'â³ Tour de l\'autreâ€¦');
 
     document.getElementById('uno-cards-enemy').textContent = `${(enemy||[]).length} cartes`;
-    document.getElementById('uno-card-value').textContent  = top ? `${UNO_EMOJIS[top.c]||'🃏'} ${top.v}` : '?';
+    document.getElementById('uno-card-value').textContent  = top ? `${UNO_EMOJIS[top.c]||'ðŸƒ'} ${top.v}` : '?';
 
     const ci = document.getElementById('uno-color-indicator');
     ci.textContent = UNO_EMOJIS[gs.color] || '';
@@ -633,7 +653,7 @@ const Uno = {
     (hand || []).forEach((card, i) => {
       const btn = document.createElement('button');
       btn.className  = 'uno-card';
-      btn.textContent = `${UNO_EMOJIS[card.c] || '🃏'} ${card.v}`;
+      btn.textContent = `${UNO_EMOJIS[card.c] || 'ðŸƒ'} ${card.v}`;
       btn.style.background = this.cardBg(card.c);
       const canPlay = isMyTurn && !gs.winner && this.canPlay(card, top, gs.color);
       btn.disabled = !canPlay;
@@ -671,7 +691,7 @@ const Uno = {
     let enemyHand  = [...(GameHub.player === 'scott' ? gs.handNolwen : gs.handScott)];
     const enemyKey = GameHub.player === 'scott' ? 'handNolwen' : 'handScott';
 
-    // Effets spéciaux
+    // Effets spÃ©ciaux
     if (card.v === 'Skip') newTurn = GameHub.player;
     if (card.v === '+2' || card.v === 'Wild+4') {
       const count = card.v === '+2' ? 2 : 4;
@@ -714,9 +734,9 @@ const Uno = {
   },
 };
 
-// ═══════════════════════════════════════════════════════════
-//  BATAILLE NAVALE (6×6)
-// ═══════════════════════════════════════════════════════════
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+//  BATAILLE NAVALE (6Ã—6)
+// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 const BN = {
   SIZE:      6,
   SHIPS:     [3, 2, 1],  // tailles des bateaux
@@ -726,7 +746,7 @@ const BN = {
   startCell: null,
   readyLocal: false,
 
-  // Firebase stocke 'none' pour les valeurs vides (null est supprimé)
+  // Firebase stocke 'none' pour les valeurs vides (null est supprimÃ©)
   _shots(gs, player) {
     const v = player === 'scott' ? gs.shotsScott : gs.shotsNolwen;
     return Array.isArray(v) ? v : [];
@@ -751,7 +771,7 @@ const BN = {
       document.getElementById('bn-result').classList.remove('hidden');
       document.getElementById('bn-play').classList.add('hidden');
       document.getElementById('bn-result-msg').textContent =
-        gs.winner === GameHub.player ? '🏆 Tu as coulé toute la flotte !' : '💥 Ta flotte a été coulée !';
+        gs.winner === GameHub.player ? 'ðŸ† Tu as coulÃ© toute la flotte !' : 'ðŸ’¥ Ta flotte a Ã©tÃ© coulÃ©e !';
     }
   },
 
@@ -764,11 +784,11 @@ const BN = {
     const hint    = document.getElementById('bn-setup-hint');
 
     if (myReady) {
-      hint.textContent = '✅ Prêt ! En attente de l\'autre joueur…';
+      hint.textContent = 'âœ… PrÃªt ! En attente de l\'autre joueurâ€¦';
       document.getElementById('bn-ready-btn').style.display = 'none';
     } else {
       const ship = this.SHIPS[this.placing];
-      hint.textContent = ship ? `Place ton bateau de taille ${ship} (${this.placing+1}/${this.SHIPS.length})` : 'Tous les bateaux placés !';
+      hint.textContent = ship ? `Place ton bateau de taille ${ship} (${this.placing+1}/${this.SHIPS.length})` : 'Tous les bateaux placÃ©s !';
     }
 
     this.renderMyGrid(null, true);
@@ -810,7 +830,7 @@ const BN = {
 
     const isMyTurn = gs.turn === GameHub.player;
     const turnName = gs.turn === 'scott' ? 'Scott' : 'Nolwen';
-    document.getElementById('bn-status').textContent = isMyTurn ? '🎯 À toi d\'attaquer !' : `${turnName} attaque…`;
+    document.getElementById('bn-status').textContent = isMyTurn ? 'ðŸŽ¯ Ã€ toi d\'attaquer !' : `${turnName} attaqueâ€¦`;
 
     this.renderMyGrid(gs, false);
 
@@ -856,7 +876,7 @@ const BN = {
       const nc = this.dir === 'h' ? c+i : c;
       if (nr>=this.SIZE || nc>=this.SIZE) { App.toast("Hors de la grille !"); return; }
       if (this.myShips.some(s => s.cells.some(([sr,sc]) => sr===nr && sc===nc))) {
-        App.toast("Cellule déjà occupée !"); return;
+        App.toast("Cellule dÃ©jÃ  occupÃ©e !"); return;
       }
       cells.push([nr, nc]);
     }
@@ -871,7 +891,7 @@ const BN = {
     const key = `gameState/ships${GameHub.player.charAt(0).toUpperCase()+GameHub.player.slice(1)}`;
     await GameHub.roomRef.update({ [key]: this.myShips });
 
-    // Vérifier si les deux sont prêts (hôte)
+    // VÃ©rifier si les deux sont prÃªts (hÃ´te)
     if (GameHub.isHost) {
       const snap = await GameHub.roomRef.get();
       const gs   = snap.val().gameState;
@@ -888,7 +908,7 @@ const BN = {
     const enemy    = this._ships(gs, opponent);
     const nextTurn = GameHub.player === 'scott' ? 'nolwen' : 'scott';
 
-    // Vérifier victoire
+    // VÃ©rifier victoire
     const allSunk = enemy.every(ship => ship.cells.every(([sr,sc]) => myShots.some(([mr,mc]) => mr===sr && mc===sc)));
     await GameHub.roomRef.update({
       [key]: myShots,
