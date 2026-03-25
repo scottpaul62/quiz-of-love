@@ -9,7 +9,7 @@
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyC6AlMxLlTGu43L7A4BC33AG4TfmRe2VFQ",
   authDomain:        "scott-et-nolwen.firebaseapp.com",
-  databaseURL: "https://scott-et-nolwen-default-rtdb.europe-west1.firebasedatabase.app",
+  databaseURL:       "https://scott-et-nolwen-default-rtdb.europe-west1.firebasedatabase.app",
   projectId:         "scott-et-nolwen",
   storageBucket:     "scott-et-nolwen.firebasestorage.app",
   messagingSenderId: "611805730130",
