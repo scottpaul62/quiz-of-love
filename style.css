@@ -362,7 +362,14 @@ html, body {
 
 .join-form {
   display: flex;
+  flex-direction: column;
   gap: 10px;
+}
+
+.join-form .btn {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  padding: 14px 20px;
 }
 
 .join-form input {
