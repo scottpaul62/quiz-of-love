@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quiz of Love 💕</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Fond animé -->
+  <div id="hearts-bg" aria-hidden="true"></div>
+  <div id="confetti-container" aria-hidden="true"></div>
+
+  <!-- ═══════════════════════════════════ ÉCRAN : ACCUEIL ═══════════════════════════════════ -->
+  <div id="screen-welcome" class="screen active">
+    <div class="welcome-content">
+      <div class="logo-area">
+        <div class="main-heart">❤️</div>
+        <h1 class="game-title">Quiz of Love</h1>
+        <p class="game-subtitle">Les potins de Scott &amp; Nolwen</p>
+        <p class="game-tagline">Vous connaissez-vous vraiment ?</p>
+      </div>
+      <div class="welcome-buttons">
+        <button class="btn btn-primary btn-xl" onclick="App.showScreen('screen-setup')">
+          <span>Commencer l'aventure</span>
+          <span class="btn-icon">💘</span>
+        </button>
+      </div>
+      <div class="modes-preview">
+        <span class="mode-pill">🧠 Connaissance</span>
+        <span class="mode-pill">🔥 Hot &amp; Spicy</span>
+        <span class="mode-pill">💕 Couple Goals</span>
+        <span class="mode-pill">🎭 Défi Fou</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ ÉCRAN : SETUP ═══════════════════════════════════ -->
+  <div id="screen-setup" class="screen">
+    <div class="setup-content">
+      <button class="btn-back" onclick="App.showScreen('screen-welcome')">← Retour</button>
+      <h2 class="screen-title">Qui es-tu ?</h2>
+      <div class="player-select">
+        <button class="player-card" id="card-scott" onclick="App.selectPlayer('scott')">
+          <div class="player-avatar">👨</div>
+          <span class="player-name-label">Scott</span>
+          <span class="player-check hidden">✓</span>
+        </button>
+        <div class="heart-divider">💕</div>
+        <button class="player-card" id="card-nolwen" onclick="App.selectPlayer('nolwen')">
+          <div class="player-avatar">👩</div>
+          <span class="player-name-label">Nolwen</span>
+          <span class="player-check hidden">✓</span>
+        </button>
+      </div>
+
+      <div id="room-options" class="room-options hidden">
+        <button class="btn btn-primary btn-lg" onclick="App.createRoom()">
+          <span>Créer une partie</span>
+          <span class="btn-icon">🎮</span>
+        </button>
+        <div class="divider-text">— ou rejoindre une partie —</div>
+        <div class="join-form">
+          <input type="text" id="join-code-input" placeholder="CODE À 6 CHIFFRES"
+            maxlength="6" autocomplete="off" oninput="this.value=this.value.toUpperCase()" />
+          <button class="btn btn-secondary" onclick="App.joinRoom()">Rejoindre ➔</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ ÉCRAN : LOBBY ═══════════════════════════════════ -->
+  <div id="screen-lobby" class="screen">
+    <div class="lobby-content">
+      <h2 class="screen-title">Salle d'attente</h2>
+
+      <div id="room-code-display" class="room-code-display hidden">
+        <p class="code-label">Code de ta partie :</p>
+        <div class="code-box" id="room-code-text">------</div>
+        <p class="code-hint">📲 Envoie ce code à l'autre joueur</p>
+        <button class="btn-copy" onclick="App.copyCode()">📋 Copier</button>
+      </div>
+
+      <div class="players-status-row">
+        <div class="pstatus-card" id="pstatus-scott">
+          <div class="pstatus-avatar">👨</div>
+          <div class="pstatus-name">Scott</div>
+          <div class="pstatus-dot" id="dot-scott"></div>
+        </div>
+        <div class="vs-heart">💞</div>
+        <div class="pstatus-card" id="pstatus-nolwen">
+          <div class="pstatus-avatar">👩</div>
+          <div class="pstatus-name">Nolwen</div>
+          <div class="pstatus-dot" id="dot-nolwen"></div>
+        </div>
+      </div>
+
+      <!-- Sélection de mode (visible seulement au host quand les 2 sont connectés) -->
+      <div id="mode-select" class="mode-select hidden">
+        <h3 class="mode-select-title">Choisissez votre mode de jeu</h3>
+        <div class="modes-grid">
+          <button class="mode-card" data-mode="connaissance" onclick="App.selectMode('connaissance')">
+            <span class="mode-emoji">🧠</span>
+            <span class="mode-name">Connaissance</span>
+            <span class="mode-desc">Vous connaissez-vous vraiment ?</span>
+          </button>
+          <button class="mode-card" data-mode="hot" onclick="App.selectMode('hot')">
+            <span class="mode-emoji">🔥</span>
+            <span class="mode-name">Hot &amp; Spicy</span>
+            <span class="mode-desc">Pour les courageux… 😈</span>
+          </button>
+          <button class="mode-card" data-mode="couple" onclick="App.selectMode('couple')">
+            <span class="mode-emoji">💕</span>
+            <span class="mode-name">Couple Goals</span>
+            <span class="mode-desc">Votre futur ensemble</span>
+          </button>
+          <button class="mode-card" data-mode="defi" onclick="App.selectMode('defi')">
+            <span class="mode-emoji">🎭</span>
+            <span class="mode-name">Défi Fou</span>
+            <span class="mode-desc">Osez tout !</span>
+          </button>
+        </div>
+        <button id="start-game-btn" class="btn btn-primary btn-lg hidden" onclick="App.startGame()">
+          Lancer le jeu ! 🚀
+        </button>
+      </div>
+
+      <div id="lobby-waiting" class="lobby-waiting">
+        <div class="pulse-dots"><span></span><span></span><span></span></div>
+        <p id="lobby-waiting-msg">En attente de l'autre joueur…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ ÉCRAN : JEU ═══════════════════════════════════ -->
+  <div id="screen-game" class="screen">
+    <div class="game-wrapper">
+
+      <div class="game-header">
+        <div class="score-block">
+          <span class="score-player-name">👨 Scott</span>
+          <span class="score-num" id="score-scott">0</span>
+        </div>
+        <div class="question-progress">
+          <span id="question-counter">1 / 8</span>
+          <span class="mode-badge" id="mode-badge">🧠</span>
+        </div>
+        <div class="score-block">
+          <span class="score-num" id="score-nolwen">0</span>
+          <span class="score-player-name">Nolwen 👩</span>
+        </div>
+      </div>
+
+      <div class="timer-bar-wrap">
+        <div class="timer-bar-fill" id="timer-bar-fill"></div>
+      </div>
+      <div class="timer-text" id="timer-text">15</div>
+
+      <div class="question-zone">
+        <div class="round-label" id="round-label">C'est ta question !</div>
+        <div class="question-card" id="question-card">
+          <p class="question-text" id="question-text">...</p>
+        </div>
+
+        <div class="answers-grid" id="answers-grid">
+          <!-- Généré dynamiquement -->
+        </div>
+
+        <div id="answered-waiting" class="answered-waiting hidden">
+          <div class="pulse-dots"><span></span><span></span><span></span></div>
+          <p>Réponse envoyée ! En attente de l'autre joueur…</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ ÉCRAN : RÉSULTAT DE MANCHE ═══════════════════════════════════ -->
+  <div id="screen-result" class="screen">
+    <div class="result-content">
+      <div class="result-anim" id="result-anim">🎉</div>
+      <h2 class="result-title" id="result-title">Résultat</h2>
+      <p class="result-message" id="result-message">...</p>
+
+      <div class="answers-reveal">
+        <div class="answer-reveal-card" id="reveal-scott">
+          <div class="reveal-player">👨 Scott</div>
+          <div class="reveal-answer" id="reveal-scott-answer">—</div>
+        </div>
+        <div class="reveal-vs">VS</div>
+        <div class="answer-reveal-card" id="reveal-nolwen">
+          <div class="reveal-player">👩 Nolwen</div>
+          <div class="reveal-answer" id="reveal-nolwen-answer">—</div>
+        </div>
+      </div>
+
+      <div class="scores-row">
+        <div class="score-big-card">
+          <span>👨</span>
+          <span class="score-big-num" id="result-score-scott">0</span>
+          <span class="score-big-label">pts</span>
+        </div>
+        <span class="score-big-vs">·</span>
+        <div class="score-big-card">
+          <span>👩</span>
+          <span class="score-big-num" id="result-score-nolwen">0</span>
+          <span class="score-big-label">pts</span>
+        </div>
+      </div>
+
+      <button id="next-btn" class="btn btn-primary btn-lg" onclick="App.nextQuestion()">
+        Question suivante ➔
+      </button>
+      <p id="next-waiting-msg" class="next-waiting hidden">En attente de l'hôte…</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ ÉCRAN : SCORE FINAL ═══════════════════════════════════ -->
+  <div id="screen-final" class="screen">
+    <div class="final-content">
+      <div class="trophy-big" id="trophy-anim">🏆</div>
+      <h1 class="final-title">Fin de la partie !</h1>
+      <div class="winner-block" id="winner-block"></div>
+
+      <div class="final-scores-row">
+        <div class="final-score-card">
+          <div class="final-avatar">👨</div>
+          <div class="final-player-name">Scott</div>
+          <div class="final-score-num" id="final-score-scott">0</div>
+          <div class="final-pts">points</div>
+        </div>
+        <div class="final-heart">💕</div>
+        <div class="final-score-card">
+          <div class="final-avatar">👩</div>
+          <div class="final-player-name">Nolwen</div>
+          <div class="final-score-num" id="final-score-nolwen">0</div>
+          <div class="final-pts">points</div>
+        </div>
+      </div>
+
+      <div class="love-msg" id="love-msg"></div>
+
+      <button class="btn btn-primary btn-xl" onclick="App.restart()">
+        Rejouer 💘
+      </button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ TOAST ═══════════════════════════════════ -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
