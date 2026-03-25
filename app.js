@@ -613,20 +613,53 @@ const SFX = {
         break;
       case 'next': this._tone(440, 'sine', 0.1, 0.1); break;
       case 'meow':
-        // Miaou synthétique
+        // Miaou de chaton synthétique
         if (!this.ctx) break;
-        { const t = this.ctx.currentTime;
-          const o = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
-          o.type = 'sine';
-          o.frequency.setValueAtTime(900, t);
-          o.frequency.exponentialRampToValueAtTime(600, t + 0.08);
-          o.frequency.exponentialRampToValueAtTime(750, t + 0.18);
-          o.frequency.exponentialRampToValueAtTime(500, t + 0.35);
-          g.gain.setValueAtTime(0.25, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
-          o.connect(g); g.connect(this.ctx.destination);
-          o.start(t); o.stop(t + 0.4);
+        {
+          const t   = this.ctx.currentTime;
+          const ctx = this.ctx;
+
+          // Oscillateur principal (voix)
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          // Filtre passe-bande pour sonorité nasale de chaton
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.value = 1200;
+          filter.Q.value = 1.5;
+
+          osc.type = 'sawtooth';
+          // Glissement de fréquence : miii-aou
+          osc.frequency.setValueAtTime(700,  t);
+          osc.frequency.linearRampToValueAtTime(950, t + 0.07);
+          osc.frequency.linearRampToValueAtTime(600, t + 0.18);
+          osc.frequency.linearRampToValueAtTime(480, t + 0.32);
+
+          // Enveloppe : attaque rapide, decay douce
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.18, t + 0.04);
+          gain.gain.setValueAtTime(0.18, t + 0.16);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+
+          osc.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + 0.45);
+
+          // Harmonique secondaire (petite voix de chaton)
+          const osc2  = ctx.createOscillator();
+          const gain2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(1400, t);
+          osc2.frequency.linearRampToValueAtTime(900, t + 0.32);
+          gain2.gain.setValueAtTime(0, t);
+          gain2.gain.linearRampToValueAtTime(0.07, t + 0.04);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+          osc2.connect(gain2);
+          gain2.connect(ctx.destination);
+          osc2.start(t);
+          osc2.stop(t + 0.4);
         }
         break;
     }
@@ -735,8 +768,8 @@ const CatBounce = {
     if (bounced && now - this.lastMeow > 400) {
       this.lastMeow = now;
       SFX.play('meow');
-      this.el.style.borderColor = 'var(--gold)';
-      setTimeout(() => { if (this.el) this.el.style.borderColor = 'var(--pink)'; }, 300);
+      this.el.style.filter = 'drop-shadow(0 0 20px rgba(255,215,0,0.9)) drop-shadow(0 0 40px rgba(255,107,157,0.7))';
+      setTimeout(() => { if (this.el) this.el.style.filter = 'drop-shadow(0 0 12px rgba(255,107,157,0.5)) drop-shadow(0 0 24px rgba(199,125,255,0.3))'; }, 350);
     }
 
     this.el.style.left = this.x + 'px';

@@ -47,7 +47,7 @@ const GameHub = {
     document.getElementById('game-room-code-text').textContent = code;
     document.getElementById('game-room-code-display').classList.remove('hidden');
     document.getElementById('game-create-join').classList.add('hidden');
-    UI.setGameDot(this.player, true);
+    setGameDot(this.player, true);
     this.setupListener(code);
     SFX.play('create');
   },
@@ -66,7 +66,7 @@ const GameHub = {
       await db.ref('games/' + code).update({ guest: this.player });
     }
     document.getElementById('game-create-join').classList.add('hidden');
-    UI.setGameDot(this.player, true);
+    setGameDot(this.player, true);
     this.setupListener(code);
     SFX.play('join');
   },
@@ -78,8 +78,8 @@ const GameHub = {
     this.roomRef.on('value', snap => {
       if (!snap.exists()) return;
       const data = snap.val();
-      if (data.host)  UI.setGameDot(data.host,  true);
-      if (data.guest) UI.setGameDot(data.guest, true);
+      if (data.host)  setGameDot(data.host,  true);
+      if (data.guest) setGameDot(data.guest, true);
 
       if (data.status === 'lobby' && data.host && data.guest) {
         document.getElementById('game-lobby-waiting').classList.add('hidden');
@@ -98,13 +98,14 @@ const GameHub = {
   },
 
   initState(type) {
+    // Note: Firebase strip les valeurs null → on utilise '' à la place
     switch(type) {
-      case 'morpion':  return { board: Array(9).fill(null), turn: 'scott', winner: null, scores: {scott:0, nolwen:0} };
-      case 'p4':       return { board: Array(42).fill(null), turn: 'scott', winner: null, scores: {scott:0, nolwen:0} };
-      case 'pfc':      return { choices: {scott:null, nolwen:null}, scores: {scott:0, nolwen:0}, round: 0 };
-      case 'vod':      return { turn: 'scott', pick: null, questionIdx: -1, status: 'choosing' };
+      case 'morpion':  return { board: Array(9).fill('_'),  turn: 'scott', winner: '_', scores: {scott:0, nolwen:0} };
+      case 'p4':       return { board: Array(42).fill('_'), turn: 'scott', winner: '_', scores: {scott:0, nolwen:0} };
+      case 'pfc':      return { choices: {scott:'_', nolwen:'_'}, scores: {scott:0, nolwen:0}, round: 0 };
+      case 'vod':      return { turn: 'scott', pick: '', questionIdx: -1, status: 'choosing' };
       case 'uno':      return Uno.buildInitialState();
-      case 'bataille': return { statusPhase: 'setup', shipsScott: null, shipsNolwen: null, shotsScott: [], shotsNolwen: [], turn: 'scott' };
+      case 'bataille': return { statusPhase: 'setup', shipsScott: 'none', shipsNolwen: 'none', shotsScott: 'none', shotsNolwen: 'none', turn: 'scott' };
       default:         return {};
     }
   },
@@ -127,14 +128,13 @@ const GameHub = {
   },
 };
 
-// helper
+// helper (utilise directement l'élément DOM, pas besoin de UI)
 function setGameDot(player, on) {
   const d = document.getElementById('gdot-' + player);
   const c = document.getElementById('gpstatus-' + player);
   if (d) d.classList.toggle('online', on);
   if (c) c.classList.toggle('connected', on);
 }
-UI.setGameDot = setGameDot;
 
 // ═══════════════════════════════════════════════════════════
 //  MORPION LOVE
@@ -156,23 +156,27 @@ const Morpion = {
     const isMyTurn = gs.turn === GameHub.player;
     const status = document.getElementById('morpion-status');
     const turnName = gs.turn === 'scott' ? 'Scott' : 'Nolwen';
-    status.textContent = gs.winner
+    const hasWin = gs.winner && gs.winner !== '_';
+    status.textContent = hasWin
       ? (gs.winner === 'draw' ? 'Match nul !' : `${gs.winner === 'scott' ? 'Scott' : 'Nolwen'} gagne ! 🎉`)
       : (isMyTurn ? 'À toi de jouer ! 🎯' : `Tour de ${turnName}…`);
 
     const board = document.getElementById('morpion-board');
     board.innerHTML = '';
     const symbols = { scott: '❤️', nolwen: '💜' };
-    gs.board.forEach((cell, i) => {
+    // Firebase retourne parfois un objet {0:x,1:x,...} au lieu d'un array
+    const boardArr = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
+    boardArr.forEach((cell, i) => {
+      const empty = !cell || cell === '_';
       const btn = document.createElement('button');
-      btn.className = 'morpion-cell' + (cell ? ' taken' : '') + (isMyTurn && !cell && !gs.winner ? ' playable' : '');
-      btn.textContent = cell ? symbols[cell] : '';
-      if (!cell && isMyTurn && !gs.winner) btn.onclick = () => this.play(i, gs, data);
+      btn.className = 'morpion-cell' + (!empty ? ' taken' : '') + (isMyTurn && empty && !gs.winner ? ' playable' : '');
+      btn.textContent = empty ? '' : (symbols[cell] || cell);
+      if (empty && isMyTurn && !gs.winner) btn.onclick = () => this.play(i, gs, data);
       board.appendChild(btn);
     });
 
     const resultDiv = document.getElementById('morpion-result');
-    if (gs.winner) {
+    if (hasWin) {
       resultDiv.classList.remove('hidden');
       const msg = document.getElementById('morpion-result-msg');
       msg.textContent = gs.winner === 'draw' ? '🤝 Match nul !' :
@@ -182,35 +186,40 @@ const Morpion = {
     } else {
       resultDiv.classList.add('hidden');
     }
+
   },
 
   async play(i, gs, data) {
-    const newBoard = [...gs.board];
+    const boardArr = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
+    const newBoard = [...boardArr];
     newBoard[i] = GameHub.player;
-    const winner = this.checkWinner(newBoard) || (newBoard.every(c => c) ? 'draw' : null);
+    const full      = newBoard.every(c => c && c !== '_');
+    const winResult = this.checkWinner(newBoard);
+    const winner    = winResult || (full ? 'draw' : '_');
+    const realWin   = winner !== '_';
     const newScores = { ...gs.scores };
-    if (winner && winner !== 'draw') newScores[winner] = (newScores[winner] || 0) + 1;
+    if (realWin && winner !== 'draw') newScores[winner] = (newScores[winner] || 0) + 1;
     const nextTurn = GameHub.player === 'scott' ? 'nolwen' : 'scott';
     await GameHub.roomRef.update({
       'gameState/board':  newBoard,
-      'gameState/turn':   winner ? gs.turn : nextTurn,
+      'gameState/turn':   realWin ? gs.turn : nextTurn,
       'gameState/winner': winner,
       'gameState/scores': newScores,
     });
-    SFX.play(winner && winner !== 'draw' ? 'correct' : 'answer');
+    SFX.play(realWin && winner !== 'draw' ? 'correct' : 'answer');
   },
 
   checkWinner(b) {
     const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     for (const [a,bb,c] of lines) {
-      if (b[a] && b[a] === b[bb] && b[a] === b[c]) return b[a];
+      if (b[a] && b[a] !== '_' && b[a] === b[bb] && b[a] === b[c]) return b[a];
     }
     return null;
   },
 
   async restart() {
     await GameHub.roomRef.update({
-      gameState: { board: Array(9).fill(null), turn: 'scott', winner: null, scores: { scott: parseInt(document.getElementById('m-score-scott').textContent)||0, nolwen: parseInt(document.getElementById('m-score-nolwen').textContent)||0 } }
+      gameState: { board: Array(9).fill('_'), turn: 'scott', winner: '_', scores: { scott: parseInt(document.getElementById('m-score-scott').textContent)||0, nolwen: parseInt(document.getElementById('m-score-nolwen').textContent)||0 } }
     });
   },
 };
@@ -235,7 +244,8 @@ const P4 = {
     const isMyTurn = gs.turn === GameHub.player;
     const turnName = gs.turn === 'scott' ? 'Scott' : 'Nolwen';
     const status = document.getElementById('p4-status');
-    status.textContent = gs.winner
+    const p4HasWin = gs.winner && gs.winner !== '_';
+    status.textContent = p4HasWin
       ? (gs.winner === 'draw' ? 'Grille pleine — match nul !' : `${gs.winner === 'scott' ? 'Scott' : 'Nolwen'} gagne ! 🎉`)
       : (isMyTurn ? 'À toi de jouer ! 🎯' : `Tour de ${turnName}…`);
 
@@ -244,30 +254,32 @@ const P4 = {
     colBtns.innerHTML = '';
     for (let c = 0; c < this.COLS; c++) {
       const btn = document.createElement('button');
-      btn.className = 'p4-col-btn' + (isMyTurn && !gs.winner ? ' active' : '');
+      btn.className = 'p4-col-btn' + (isMyTurn && !p4HasWin ? ' active' : '');
       btn.textContent = '▼';
-      btn.disabled = !isMyTurn || !!gs.winner;
+      btn.disabled = !isMyTurn || p4HasWin;
       const col = c;
       btn.onclick = () => this.drop(col, gs);
       colBtns.appendChild(btn);
     }
 
     // Grille
-    const board = document.getElementById('p4-board');
-    board.innerHTML = '';
+    const boardArr4 = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
+    const board4 = document.getElementById('p4-board');
+    board4.innerHTML = '';
     const colors = { scott: '🔴', nolwen: '💜' };
     for (let r = 0; r < this.ROWS; r++) {
       for (let c = 0; c < this.COLS; c++) {
         const cell = document.createElement('div');
-        const val  = gs.board[r * this.COLS + c];
-        cell.className = 'p4-cell' + (val ? ` p4-${val}` : '');
-        cell.textContent = val ? colors[val] : '';
-        board.appendChild(cell);
+        const val  = boardArr4[r * this.COLS + c];
+        const empty = !val || val === '_';
+        cell.className = 'p4-cell' + (!empty ? ` p4-${val}` : '');
+        cell.textContent = empty ? '' : (colors[val] || val);
+        board4.appendChild(cell);
       }
     }
 
     const res = document.getElementById('p4-result');
-    if (gs.winner) {
+    if (p4HasWin) {
       res.classList.remove('hidden');
       document.getElementById('p4-result-msg').textContent = gs.winner === 'draw' ? '🤝 Match nul !' :
         gs.winner === GameHub.player ? '🏆 Tu as gagné !' : '😅 Tu as perdu !';
@@ -279,31 +291,36 @@ const P4 = {
   },
 
   async drop(col, gs) {
-    const newBoard = [...gs.board];
+    const boardArr = Array.isArray(gs.board) ? gs.board : Object.values(gs.board || {});
+    const newBoard = [...boardArr];
     let row = -1;
     for (let r = this.ROWS - 1; r >= 0; r--) {
-      if (!newBoard[r * this.COLS + col]) { row = r; break; }
+      const v = newBoard[r * this.COLS + col];
+      if (!v || v === '_') { row = r; break; }
     }
     if (row === -1) return;
     newBoard[row * this.COLS + col] = GameHub.player;
-    const winner = this.checkWinner(newBoard) || (newBoard.every(c => c) ? 'draw' : null);
+    const full4     = newBoard.every(c => c && c !== '_');
+    const winResult = this.checkWinner(newBoard);
+    const winner    = winResult || (full4 ? 'draw' : '_');
+    const realWin   = winner !== '_';
     const newScores = { ...gs.scores };
-    if (winner && winner !== 'draw') newScores[winner] = (newScores[winner] || 0) + 1;
+    if (realWin && winner !== 'draw') newScores[winner] = (newScores[winner] || 0) + 1;
     const nextTurn = GameHub.player === 'scott' ? 'nolwen' : 'scott';
     await GameHub.roomRef.update({
       'gameState/board':  newBoard,
-      'gameState/turn':   winner ? gs.turn : nextTurn,
+      'gameState/turn':   realWin ? gs.turn : nextTurn,
       'gameState/winner': winner,
       'gameState/scores': newScores,
     });
-    SFX.play(winner && winner !== 'draw' ? 'correct' : 'answer');
+    SFX.play(realWin && winner !== 'draw' ? 'correct' : 'answer');
   },
 
   checkWinner(b) {
     const R = this.ROWS, C = this.COLS;
     const check = (r, c, dr, dc) => {
       const v = b[r*C+c];
-      if (!v) return null;
+      if (!v || v === '_') return null;
       for (let i = 1; i < 4; i++) {
         const nr = r+dr*i, nc = c+dc*i;
         if (nr<0||nr>=R||nc<0||nc>=C||b[nr*C+nc]!==v) return null;
@@ -319,7 +336,7 @@ const P4 = {
 
   async restart() {
     await GameHub.roomRef.update({
-      gameState: { board: Array(42).fill(null), turn: 'scott', winner: null, scores: { scott: parseInt(document.getElementById('p4-score-scott').textContent)||0, nolwen: parseInt(document.getElementById('p4-score-nolwen').textContent)||0 } }
+      gameState: { board: Array(42).fill('_'), turn: 'scott', winner: '_', scores: { scott: parseInt(document.getElementById('p4-score-scott').textContent)||0, nolwen: parseInt(document.getElementById('p4-score-nolwen').textContent)||0 } }
     });
   },
 };
@@ -350,14 +367,14 @@ const PFC = {
     const revealEl   = document.getElementById('pfc-reveal');
     const waitingEl  = document.getElementById('pfc-waiting');
 
-    if (!myChoice) {
+    if (!myChoice || myChoice === '_') {
       // Pas encore choisi
       choicesEl.classList.remove('hidden');
       revealEl.classList.add('hidden');
       waitingEl.classList.add('hidden');
       document.getElementById('pfc-status').textContent = 'Choisis ton arme !';
       document.querySelectorAll('.pfc-btn').forEach(b => b.disabled = false);
-    } else if (!enemyChoice) {
+    } else if (!enemyChoice || enemyChoice === '_') {
       // J'ai choisi, en attente de l'autre
       choicesEl.classList.add('hidden');
       revealEl.classList.add('hidden');
@@ -391,7 +408,7 @@ const PFC = {
         // Rejouer après 2.5s (hôte reset les choix)
         if (GameHub.isHost) {
           setTimeout(async () => {
-            await GameHub.roomRef.update({ 'gameState/choices': { scott: null, nolwen: null } });
+            await GameHub.roomRef.update({ 'gameState/choices': { scott: '', nolwen: '' } });
             this._myChoice = null;
           }, 2500);
         } else {
@@ -687,6 +704,16 @@ const BN = {
   startCell: null,
   readyLocal: false,
 
+  // Firebase stocke 'none' pour les valeurs vides (null est supprimé)
+  _shots(gs, player) {
+    const v = player === 'scott' ? gs.shotsScott : gs.shotsNolwen;
+    return Array.isArray(v) ? v : [];
+  },
+  _ships(gs, player) {
+    const v = player === 'scott' ? gs.shipsScott : gs.shipsNolwen;
+    return Array.isArray(v) ? v : null;
+  },
+
   handleUpdate(data) {
     const gs = data.gameState;
     if (!gs) return;
@@ -711,7 +738,7 @@ const BN = {
     document.getElementById('bn-play').classList.add('hidden');
     document.getElementById('bn-result').classList.add('hidden');
 
-    const myReady = GameHub.player === 'scott' ? !!gs.shipsScott : !!gs.shipsNolwen;
+    const myReady = !!this._ships(gs, GameHub.player);
     const hint    = document.getElementById('bn-setup-hint');
 
     if (myReady) {
@@ -738,7 +765,8 @@ const BN = {
         if (hasShip) cell.classList.add('bn-ship');
 
         if (gs) {
-          const shots = GameHub.player === 'scott' ? gs.shotsNolwen : gs.shotsScott;
+          const opponent = GameHub.player === 'scott' ? 'nolwen' : 'scott';
+          const shots = this._shots(gs, opponent);
           const hit   = shots.some(([sr,sc]) => sr===r && sc===c);
           if (hit && hasShip) cell.classList.add('bn-hit');
           if (hit && !hasShip) cell.classList.add('bn-miss');
@@ -766,8 +794,9 @@ const BN = {
 
     const enemyGrid = document.getElementById('bn-enemy-grid');
     enemyGrid.innerHTML = '';
-    const myShipsData = GameHub.player === 'scott' ? gs.shipsScott : gs.shipsNolwen;
-    const myShots     = GameHub.player === 'scott' ? gs.shotsScott : gs.shotsNolwen;
+    const myShipsData = this._ships(gs, GameHub.player);
+    const myShots     = this._shots(gs, GameHub.player);
+    const opponent    = GameHub.player === 'scott' ? 'nolwen' : 'scott';
 
     for (let r = 0; r < this.SIZE; r++) {
       for (let c = 0; c < this.SIZE; c++) {
@@ -775,7 +804,7 @@ const BN = {
         cell.className = 'bn-cell';
         const shot = myShots.some(([sr,sc]) => sr===r && sc===c);
         if (shot) {
-          const enemyShips = GameHub.player === 'scott' ? gs.shipsNolwen : gs.shipsScott;
+          const enemyShips = this._ships(gs, opponent);
           const hit = enemyShips && enemyShips.some(s => s.cells.some(([sr,sc]) => sr===r && sc===c));
           cell.classList.add(hit ? 'bn-hit' : 'bn-miss');
           cell.disabled = true;
@@ -811,7 +840,7 @@ const BN = {
     }
     this.myShips.push({ cells });
     this.placing++;
-    const snap = { statusPhase: 'setup', shipsScott: null, shipsNolwen: null, shotsScott: [], shotsNolwen: [], turn: 'scott' };
+    const snap = { statusPhase: 'setup', shipsScott: 'none', shipsNolwen: 'none', shotsScott: 'none', shotsNolwen: 'none', turn: 'scott' };
     this.renderSetup(snap);
     SFX.play('select');
   },
@@ -824,7 +853,7 @@ const BN = {
     if (GameHub.isHost) {
       const snap = await GameHub.roomRef.get();
       const gs   = snap.val().gameState;
-      if (gs.shipsScott && gs.shipsNolwen) {
+      if (this._ships(gs, 'scott') && this._ships(gs, 'nolwen')) {
         await GameHub.roomRef.update({ 'gameState/statusPhase': 'playing' });
       }
     }
@@ -832,8 +861,9 @@ const BN = {
 
   async shoot(r, c, gs) {
     const key      = `gameState/shots${GameHub.player.charAt(0).toUpperCase()+GameHub.player.slice(1)}`;
-    const myShots  = [...(GameHub.player === 'scott' ? gs.shotsScott : gs.shotsNolwen), [r,c]];
-    const enemy    = GameHub.player === 'scott' ? gs.shipsNolwen : gs.shipsScott;
+    const myShots  = [...this._shots(gs, GameHub.player), [r,c]];
+    const opponent = GameHub.player === 'scott' ? 'nolwen' : 'scott';
+    const enemy    = this._ships(gs, opponent);
     const nextTurn = GameHub.player === 'scott' ? 'nolwen' : 'scott';
 
     // Vérifier victoire

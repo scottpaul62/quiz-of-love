@@ -995,17 +995,16 @@ html, body {
 ═══════════════════════════════════════ */
 #cat-bounce {
   position: fixed;
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid var(--pink);
-  box-shadow: 0 0 20px var(--pink-glow), 0 0 40px rgba(199, 125, 255, 0.2);
+  width: 90px;
+  height: auto;
+  border-radius: 12px;
+  background: transparent;
+  filter: drop-shadow(0 0 12px rgba(255, 107, 157, 0.5)) drop-shadow(0 0 24px rgba(199, 125, 255, 0.3));
   pointer-events: none;
   z-index: 5;
-  cursor: none;
-  transition: border-color 0.2s;
+  transition: filter 0.2s;
   display: none;
+  image-rendering: auto;
 }
 
 /* ═══════════════════════════════════════
@@ -1075,7 +1074,7 @@ html, body {
   gap: 14px;
 }
 
-.mini-game-header {
+.mini-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1086,7 +1085,7 @@ html, body {
   backdrop-filter: blur(10px);
 }
 
-.mini-game-title {
+.mini-title {
   font-family: 'Playfair Display', serif;
   font-size: 1.3rem;
   color: var(--pink-light);
