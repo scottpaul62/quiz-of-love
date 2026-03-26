@@ -114,7 +114,6 @@ const App = {
     document.getElementById('room-options').classList.remove('hidden');
     AvatarVoices.play(name);
     App.updateChatDockVisibility();
-    SFX.play('select');
   },
 
   // ─── Créer une salle ────────────────────────────────────
