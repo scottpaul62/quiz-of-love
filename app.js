@@ -840,11 +840,81 @@ const UI = {
 // ═══════════════════════════════════════════════════════════
 const SFX = {
   _ctx: null,
+  _meowPool: [],
+  _meowPoolSize: 4,
+  _meowSrc: 'miaule.mp3',
   get ctx() {
     if (!this._ctx) {
       try { this._ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (_) {}
     }
     return this._ctx;
+  },
+
+  _ensureMeowPool() {
+    if (this._meowPool.length) return;
+    for (let i = 0; i < this._meowPoolSize; i++) {
+      const a = new Audio(this._meowSrc);
+      a.preload = 'auto';
+      a.volume = 0.85;
+      this._meowPool.push(a);
+    }
+  },
+
+  _playMeowFile() {
+    this._ensureMeowPool();
+    let slot = this._meowPool.find(a => a.paused || a.ended);
+    if (!slot) slot = this._meowPool[0];
+    if (!slot) return Promise.reject(new Error('no-audio-slot'));
+    slot.currentTime = 0;
+    return slot.play();
+  },
+
+  _playMeowSynth() {
+    if (!this.ctx) return;
+    const t   = this.ctx.currentTime;
+    const ctx = this.ctx;
+
+    // Oscillateur principal (voix)
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    // Filtre passe-bande pour sonorité nasale de chaton
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 1200;
+    filter.Q.value = 1.5;
+
+    osc.type = 'sawtooth';
+    // Glissement de fréquence : miii-aou
+    osc.frequency.setValueAtTime(700,  t);
+    osc.frequency.linearRampToValueAtTime(950, t + 0.07);
+    osc.frequency.linearRampToValueAtTime(600, t + 0.18);
+    osc.frequency.linearRampToValueAtTime(480, t + 0.32);
+
+    // Enveloppe : attaque rapide, decay douce
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.04);
+    gain.gain.setValueAtTime(0.18, t + 0.16);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.45);
+
+    // Harmonique secondaire (petite voix de chaton)
+    const osc2  = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1400, t);
+    osc2.frequency.linearRampToValueAtTime(900, t + 0.32);
+    gain2.gain.setValueAtTime(0, t);
+    gain2.gain.linearRampToValueAtTime(0.07, t + 0.04);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(t);
+    osc2.stop(t + 0.4);
   },
 
   _tone(freq, type = 'sine', duration = 0.2, volume = 0.15, start = 0) {
@@ -890,54 +960,7 @@ const SFX = {
         this._tone(1175, 'triangle', 0.11, 0.07, 0.08);
         break;
       case 'meow':
-        // Miaou de chaton synthétique
-        if (!this.ctx) break;
-        {
-          const t   = this.ctx.currentTime;
-          const ctx = this.ctx;
-
-          // Oscillateur principal (voix)
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          // Filtre passe-bande pour sonorité nasale de chaton
-          const filter = ctx.createBiquadFilter();
-          filter.type = 'bandpass';
-          filter.frequency.value = 1200;
-          filter.Q.value = 1.5;
-
-          osc.type = 'sawtooth';
-          // Glissement de fréquence : miii-aou
-          osc.frequency.setValueAtTime(700,  t);
-          osc.frequency.linearRampToValueAtTime(950, t + 0.07);
-          osc.frequency.linearRampToValueAtTime(600, t + 0.18);
-          osc.frequency.linearRampToValueAtTime(480, t + 0.32);
-
-          // Enveloppe : attaque rapide, decay douce
-          gain.gain.setValueAtTime(0, t);
-          gain.gain.linearRampToValueAtTime(0.18, t + 0.04);
-          gain.gain.setValueAtTime(0.18, t + 0.16);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
-
-          osc.connect(filter);
-          filter.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(t);
-          osc.stop(t + 0.45);
-
-          // Harmonique secondaire (petite voix de chaton)
-          const osc2  = ctx.createOscillator();
-          const gain2 = ctx.createGain();
-          osc2.type = 'sine';
-          osc2.frequency.setValueAtTime(1400, t);
-          osc2.frequency.linearRampToValueAtTime(900, t + 0.32);
-          gain2.gain.setValueAtTime(0, t);
-          gain2.gain.linearRampToValueAtTime(0.07, t + 0.04);
-          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.38);
-          osc2.connect(gain2);
-          gain2.connect(ctx.destination);
-          osc2.start(t);
-          osc2.stop(t + 0.4);
-        }
+        this._playMeowFile().catch(() => this._playMeowSynth());
         break;
     }
   },
