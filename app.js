@@ -56,6 +56,37 @@ const MODE_META = {
   defi:         { emoji: "🎭", label: "Défi Fou"      },
 };
 
+const AvatarVoices = {
+  cooldownMs: 5000,
+  lastPlayedAt: { scott: 0, nolwen: 0 },
+  players: {},
+  sources: {
+    scott: 'Scott.m4a',
+    nolwen: 'Nono.m4a',
+  },
+
+  play(player) {
+    const key = player === 'scott' ? 'scott' : (player === 'nolwen' ? 'nolwen' : null);
+    if (!key) return;
+
+    const now = Date.now();
+    const elapsed = now - (this.lastPlayedAt[key] || 0);
+    if (elapsed < this.cooldownMs) return;
+    this.lastPlayedAt[key] = now;
+
+    let audio = this.players[key];
+    if (!audio) {
+      audio = new Audio(this.sources[key]);
+      audio.preload = 'auto';
+      audio.volume = 0.95;
+      this.players[key] = audio;
+    }
+
+    try { audio.currentTime = 0; } catch (_) {}
+    audio.play().catch(() => {});
+  },
+};
+
 // ═══════════════════════════════════════════════════════════
 //  APP — Actions principales
 // ═══════════════════════════════════════════════════════════
@@ -81,6 +112,7 @@ const App = {
     card.classList.add('selected');
     card.querySelector('.player-check').classList.remove('hidden');
     document.getElementById('room-options').classList.remove('hidden');
+    AvatarVoices.play(name);
     App.updateChatDockVisibility();
     SFX.play('select');
   },
