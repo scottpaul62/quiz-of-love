@@ -101,7 +101,7 @@ const GameHub = {
       if (data.guest) setGameDot(data.guest, true);
 
       if (data.status === 'playing' || data.status === 'setup') {
-        const dispatch = { morpion: Morpion, p4: P4, pfc: PFC, vod: VOD, uno: Uno, bataille: BN };
+        const dispatch = { morpion: Morpion, p4: P4, pfc: PFC, vod: VOD, uno: Uno, bataille: BN, dessin: DrawGame };
         const game = dispatch[data.type];
         if (game) game.handleUpdate(data);
       }
@@ -116,6 +116,7 @@ const GameHub = {
       case 'vod':      return { turn: 'scott', pick: '_', questionIdx: -1, questionText: '_', status: 'choosing', usedVerite: [], usedDefi: [], lastQuestion: '_' };
       case 'uno':      return Uno.buildInitialState();
       case 'bataille': return { statusPhase: 'setup', shipsScott: 'none', shipsNolwen: 'none', shotsScott: 'none', shotsNolwen: 'none', turn: 'scott' };
+      case 'dessin':   return DrawGame.buildInitialState();
       default:         return {};
     }
   },
@@ -129,6 +130,9 @@ const GameHub = {
   cleanup() {
     if (this.roomRef) { this.roomRef.off(); this.roomRef = null; }
     if (this._leftRef) { this._leftRef.onDisconnect().cancel(); this._leftRef = null; }
+    if (typeof DrawGame !== 'undefined' && typeof DrawGame.cleanupLocal === 'function') {
+      DrawGame.cleanupLocal();
+    }
     this.active = false;
     this.sessionId = 0;
     this.joinedAt = 0;
@@ -392,6 +396,7 @@ const P4 = {
 // ═══════════════════════════════════════════════════════════
 const PFC = {
   _myChoice: null,
+  _lastAutoResetRound: -1,
 
   handleUpdate(data) {
     const gs = data.gameState;
@@ -452,12 +457,14 @@ const PFC = {
         choicesEl.classList.add('hidden');
       } else {
         // Rejouer après 2.5s (hôte reset les choix)
-        if (GameHub.isHost) {
+        const roundNo = Number(gs.round || 0);
+        if (GameHub.isHost && this._lastAutoResetRound !== roundNo) {
+          this._lastAutoResetRound = roundNo;
           setTimeout(async () => {
             await GameHub.roomRef.update({ 'gameState/choices': { scott: '_', nolwen: '_' } });
             this._myChoice = null;
           }, 2500);
-        } else {
+        } else if (!GameHub.isHost) {
           this._myChoice = null;
         }
       }
@@ -467,23 +474,22 @@ const PFC = {
   async choose(choice) {
     if (this._myChoice) return;
     this._myChoice = choice;
-    const sc = parseInt(document.getElementById('pfc-score-scott').textContent)||0;
-    const sn = parseInt(document.getElementById('pfc-score-nolwen').textContent)||0;
+    await GameHub.roomRef.child('gameState').transaction((state) => {
+      if (!state) return state;
+      state.choices = state.choices || { scott: '_', nolwen: '_' };
+      if (state.choices[GameHub.player] && state.choices[GameHub.player] !== '_') return state;
+      state.choices[GameHub.player] = choice;
 
-    await GameHub.roomRef.update({ [`gameState/choices/${GameHub.player}`]: choice });
-
-    // Si les deux ont choisi, calculer scores (hôte)
-    if (GameHub.isHost) {
-      const snap = await GameHub.roomRef.get();
-      const d    = snap.val();
-      const gc   = d.gameState.choices;
-      if (gc.scott && gc.scott !== '_' && gc.nolwen && gc.nolwen !== '_') {
-        const w = this.getWinner(gc.scott, gc.nolwen);
-        const newScores = { scott: sc, nolwen: sn };
-        if (w !== 'draw') newScores[w]++;
-        await GameHub.roomRef.update({ 'gameState/scores': newScores });
+      const sc = state.choices.scott;
+      const nn = state.choices.nolwen;
+      if (sc && sc !== '_' && nn && nn !== '_') {
+        const w = this.getWinner(sc, nn);
+        state.scores = state.scores || { scott: 0, nolwen: 0 };
+        if (w !== 'draw') state.scores[w] = (state.scores[w] || 0) + 1;
+        state.round = Number(state.round || 0) + 1;
       }
-    }
+      return state;
+    });
     SFX.play('answer');
   },
 
@@ -978,5 +984,810 @@ const BN = {
       ...(allSunk ? { 'gameState/statusPhase': 'finished', 'gameState/winner': GameHub.player } : {}),
     });
     SFX.play(allSunk ? 'win' : 'answer');
+  },
+};
+
+// ═══════════════════════════════════════════════════════════
+//  DESSIN DUEL
+// ═══════════════════════════════════════════════════════════
+const DRAW_MODE_META = {
+  rapide: { label: 'Rapide', time: 60,  hint1At: 20, hint2At: 40 },
+  moyen:  { label: 'Moyen',  time: 90,  hint1At: 30, hint2At: 60 },
+  hard:   { label: 'Hard',   time: 120, hint1At: 40, hint2At: 80 },
+};
+
+const DRAW_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+const DRAW_WORD_BANK = {
+  rapide: [
+    'chat', 'chien', 'coeur', 'rose', 'pizza', 'burger', 'soleil', 'lune', 'nuage', 'pluie',
+    'velo', 'moto', 'bus', 'taxi', 'casque', 'montre', 'bague', 'gateau', 'fraise', 'banane',
+    'panda', 'koala', 'lion', 'tigre', 'zebre', 'lapin', 'sushi', 'frites', 'cafe', 'the',
+    'livre', 'stylo', 'cle', 'porte', 'fenetre', 'table', 'chaise', 'basket', 'ballon', 'drapeau',
+    'arc', 'fleche', 'etoile', 'diamant', 'kiss', 'bisou', 'selfie', 'emoji', 'tiktok', 'snap',
+    'wifi', 'clavier', 'souris', 'ecran', 'manette', 'poulet', 'donut', 'cocktail', 'parfum', 'lunettes',
+  ],
+  moyen: [
+    'licorne', 'pingouin', 'crocodile', 'salamandre', 'trottinette', 'skateboard', 'telephone', 'appareil photo',
+    'boite mail', 'salle de sport', 'popcorn', 'cheesecake', 'croissant', 'chocolat chaud', 'carte cadeau', 'playlist',
+    'microphone', 'casquette', 'sweat a capuche', 'chaussure', 'maillot', 'parasol', 'serviette', 'valise',
+    'drone', 'ordinateur', 'chaise gaming', 'lampe neon', 'manette retro', 'jeu video', 'karaoke', 'cinema',
+    'parc aquatique', 'montagne', 'plage', 'cabane', 'feu de camp', 'sac a dos', 'bijou', 'collier',
+    'maquillage', 'parapluie', 'trottinette electrique', 'trois bougies', 'ourson geant', 'boite a musique',
+    'message vocal', 'story insta', 'crush secret', 'coeur brise', 'date parfait', 'petit dejeuner', 'oreiller',
+    'pyjama', 'bataille d eau', 'soir e jeux', 'kiss cam', 'fleur geante', 'dessert', 'milkshake', 'love room',
+  ],
+  hard: [
+    'montagne russe', 'appareil photo vintage', 'telephone casse', 'chat sur un skateboard', 'pizza en forme de coeur',
+    'licorne qui danse', 'pingouin avec lunettes', 'drone au dessus de la plage', 'manette geante', 'studio karaoke',
+    'sac a dos ouvert', 'basket en feu', 'fleur dans un vase', 'coeur brise en deux', 'selfie dans un miroir',
+    'soiree cinema maison', 'orage sur la ville', 'cabane dans les arbres', 'salle de sport vide', 'boite de chocolats',
+    'gateau d anniversaire', 'drapeau au vent', 'parapluie retourne', 'chat qui miaule', 'chien sous la pluie',
+    'rose avec epines', 'valise pleine', 'lunettes de soleil', 'boite a bijoux', 'pluie d etoiles',
+    'carte au tresor', 'message dans une bouteille', 'bougie parfumee', 'clavier rgb', 'ecran casse',
+    'histoire d amour', 'scene de jalousie', 'bisou au ralenti', 'couple goals', 'date surprise',
+    'coeur en flammes', 'parfum de luxe', 'bague en diamant', 'pull oversize', 'love emoji geant',
+    'ourson en peluche', 'coeur et eclair', 'soir de tempete', 'coucher de soleil', 'pique nique romantique',
+    'tiktok viral', 'meme drole', 'vide grenier', 'chasse au tresor', 'salle de classe', 'metro bondé',
+    'code secret', 'boite mystere', 'message cache', 'jeu de dessin',
+  ],
+};
+
+function normalizeDrawWord(word) {
+  return String(word || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9 \-']/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function drawMaskFromRevealed(normalizedWord, revealedSet) {
+  return [...(normalizedWord || '')].map(ch => {
+    if (/[A-Z0-9]/.test(ch)) return revealedSet.has(ch) ? ch : '_';
+    return ch;
+  }).join('');
+}
+
+function otherPlayer(player) {
+  return player === 'scott' ? 'nolwen' : 'scott';
+}
+
+const DrawGame = {
+  canvas: null,
+  ctx: null,
+  latestState: null,
+  drawing: false,
+  currentStroke: null,
+  brushColor: '#ffffff',
+  brushSize: 6,
+  eraser: false,
+  ticker: null,
+  _hostBusy: false,
+
+  cleanupLocal() {
+    if (this.ticker) {
+      clearInterval(this.ticker);
+      this.ticker = null;
+    }
+    this.drawing = false;
+    this.currentStroke = null;
+    this.latestState = null;
+    this._hostBusy = false;
+  },
+
+  buildInitialState() {
+    const mode = 'moyen';
+    const meta = DRAW_MODE_META[mode];
+    return {
+      mode,
+      phase: 'mode',              // mode | choose | draw | roundResult | finished
+      targetScore: 5,
+      round: 1,
+      drawer: 'scott',
+      choices: [],
+      word: '_',
+      normalizedWord: '_',
+      displayedWord: '_',
+      guessedLetters: [],
+      revealedLetters: [],
+      strokes: [],
+      timeLimit: meta.time,
+      hint1At: meta.hint1At,
+      hint2At: meta.hint2At,
+      hint1Done: false,
+      hint2Done: false,
+      startedAt: 0,
+      scores: { scott: 0, nolwen: 0 },
+      roundResolved: false,
+      roundWinner: '_',
+      roundPoints: 0,
+      lastRoundSummary: '_',
+      winner: '_',
+      lastWords: [],
+      updatedAt: Date.now(),
+    };
+  },
+
+  handleUpdate(data) {
+    const gs = data.gameState || {};
+    this.latestState = gs;
+    App.showScreen('screen-dessin');
+    this.ensureCanvas();
+    this.render(gs);
+  },
+
+  ensureCanvas() {
+    const canvas = document.getElementById('draw-canvas');
+    if (!canvas) return;
+    if (this.canvas === canvas && this.ctx) return;
+
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.ctx.lineCap = 'round';
+    this.ctx.lineJoin = 'round';
+    this.bindCanvasEvents();
+    this.renderCanvas(this.latestState || this.buildInitialState());
+  },
+
+  bindCanvasEvents() {
+    if (!this.canvas) return;
+
+    const onDown = (e) => this.startDraw(e);
+    const onMove = (e) => this.moveDraw(e);
+    const onUp = (e) => this.endDraw(e);
+
+    this.canvas.addEventListener('pointerdown', onDown);
+    this.canvas.addEventListener('pointermove', onMove);
+    this.canvas.addEventListener('pointerup', onUp);
+    this.canvas.addEventListener('pointercancel', onUp);
+    this.canvas.addEventListener('pointerleave', onUp);
+  },
+
+  render(gs) {
+    const me = GameHub.player;
+    const drawer = gs.drawer || 'scott';
+    const guesser = otherPlayer(drawer);
+    const phase = gs.phase || 'mode';
+
+    // Scores
+    document.getElementById('draw-score-scott').textContent = gs.scores?.scott || 0;
+    document.getElementById('draw-score-nolwen').textContent = gs.scores?.nolwen || 0;
+
+    // Mode buttons
+    document.querySelectorAll('.draw-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === (gs.mode || 'moyen'));
+      btn.disabled = !GameHub.isHost || phase !== 'mode';
+    });
+    const startBtn = document.getElementById('draw-start-btn');
+    if (startBtn) startBtn.disabled = !GameHub.isHost || phase !== 'mode';
+
+    const modePanel = document.getElementById('draw-mode-panel');
+    const wordChoice = document.getElementById('draw-word-choice');
+    const tools = document.getElementById('draw-tools');
+    const guessPanel = document.getElementById('draw-guess-panel');
+    const resultPanel = document.getElementById('draw-round-result');
+    const finalPanel = document.getElementById('draw-final');
+    const statusEl = document.getElementById('draw-status');
+    const hintEl = document.getElementById('draw-hint-msg');
+
+    modePanel.classList.toggle('hidden', !(phase === 'mode'));
+    wordChoice.classList.toggle('hidden', !(phase === 'choose' && me === drawer));
+    tools.classList.toggle('hidden', !(phase === 'draw' && me === drawer && !gs.roundResolved));
+    guessPanel.classList.toggle('hidden', !(phase === 'draw' && me === guesser && !gs.roundResolved));
+    resultPanel.classList.toggle('hidden', phase !== 'roundResult');
+    finalPanel.classList.toggle('hidden', phase !== 'finished');
+
+    if (phase === 'mode') {
+      statusEl.textContent = GameHub.isHost
+        ? `Choisis le mode puis lance la manche (${gs.targetScore || 5} points pour gagner)`
+        : "L'hôte prépare la partie dessin…";
+      hintEl.textContent = "Objectif: deviner vite pour gagner plus de points.";
+    } else if (phase === 'choose') {
+      statusEl.textContent = me === drawer
+        ? "Choisis 1 mot parmi les 5 propositions"
+        : `${drawer === 'scott' ? 'Scott' : 'Nolwen'} choisit un mot…`;
+      hintEl.textContent = "Le mot reste secret jusqu'au chrono.";
+    } else if (phase === 'draw') {
+      statusEl.textContent = me === drawer
+        ? "Dessine proprement: fais deviner ton mot !"
+        : "Devine vite le mot avec les lettres 👇";
+      hintEl.textContent = this.hintText(gs, me === drawer);
+    } else if (phase === 'roundResult') {
+      statusEl.textContent = "Résultat de la manche";
+      hintEl.textContent = `Mot: ${gs.word || '-'}`;
+    } else if (phase === 'finished') {
+      statusEl.textContent = "Partie terminée";
+      hintEl.textContent = "Bravo à vous deux 💕";
+    }
+
+    // Choix de mots
+    this.renderWordChoices(gs, drawer);
+    this.renderWordBoxes(gs, drawer);
+    this.renderLetters(gs, guesser);
+    this.renderRoundResult(gs);
+    this.renderFinal(gs);
+    this.renderCanvas(gs);
+    this.updateToolUi();
+    this.updateTimer(gs);
+    this.manageTicker(gs);
+  },
+
+  updateToolUi() {
+    document.querySelectorAll('.draw-color-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.color === this.brushColor && !this.eraser);
+    });
+    const eraserBtn = document.getElementById('draw-eraser-btn');
+    if (eraserBtn) eraserBtn.classList.toggle('active', this.eraser);
+    const sizeLabel = document.getElementById('draw-size-label');
+    if (sizeLabel) sizeLabel.textContent = String(this.brushSize);
+  },
+
+  hintText(gs, isDrawer) {
+    if (isDrawer) return `Mot à faire deviner: ${gs.word || '-'}`;
+    const elapsed = this.elapsedSeconds(gs);
+    const h1 = Number(gs.hint1At || 30);
+    const h2 = Number(gs.hint2At || 60);
+    if (elapsed < h1) return `Indice 1 dans ${Math.max(0, h1 - elapsed)}s`;
+    if (elapsed < h2) return `Indice 2 dans ${Math.max(0, h2 - elapsed)}s`;
+    return "Tous les indices ont été envoyés !";
+  },
+
+  renderWordChoices(gs, drawer) {
+    const wrap = document.getElementById('draw-word-options');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    if (gs.phase !== 'choose' || GameHub.player !== drawer) return;
+    normalizeList(gs.choices).forEach(word => {
+      const btn = document.createElement('button');
+      btn.className = 'draw-word-btn';
+      btn.textContent = word;
+      btn.onclick = () => this.pickWord(word);
+      wrap.appendChild(btn);
+    });
+  },
+
+  renderWordBoxes(gs, drawer) {
+    const wrap = document.getElementById('draw-word-boxes');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+
+    let text = '';
+    const normalized = gs.normalizedWord && gs.normalizedWord !== '_' ? gs.normalizedWord : normalizeDrawWord(gs.word || '');
+    if (gs.phase === 'draw') {
+      text = GameHub.player === drawer ? normalized : (gs.displayedWord || '');
+    } else if (gs.phase === 'roundResult' || gs.phase === 'finished') {
+      text = normalized || gs.displayedWord || '';
+    } else {
+      text = '';
+    }
+
+    if (!text) return;
+    [...text].forEach(ch => {
+      const box = document.createElement('div');
+      box.className = 'draw-char-box';
+      if (ch === ' ' || ch === '-') {
+        box.classList.add('space');
+        box.textContent = ch;
+      } else if (ch === '_') {
+        box.textContent = '';
+      } else {
+        box.classList.add('revealed');
+        box.textContent = ch;
+      }
+      wrap.appendChild(box);
+    });
+  },
+
+  renderLetters(gs, guesser) {
+    const grid = document.getElementById('draw-letter-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (gs.phase !== 'draw') return;
+
+    const guessed = new Set(normalizeList(gs.guessedLetters));
+    const normalizedWord = gs.normalizedWord || '';
+    const canGuessNow = (GameHub.player === guesser) && !gs.roundResolved;
+
+    DRAW_ALPHABET.forEach(letter => {
+      const btn = document.createElement('button');
+      btn.className = 'draw-letter-btn';
+      btn.textContent = letter;
+      const already = guessed.has(letter);
+      const hit = already && normalizedWord.includes(letter);
+      const miss = already && !normalizedWord.includes(letter);
+      if (hit) btn.classList.add('hit');
+      if (miss) btn.classList.add('miss');
+      btn.disabled = already || !canGuessNow;
+      if (canGuessNow && !already) {
+        btn.onclick = () => this.guessLetter(letter);
+      }
+      grid.appendChild(btn);
+    });
+  },
+
+  renderRoundResult(gs) {
+    if (gs.phase !== 'roundResult') return;
+    const msg = document.getElementById('draw-result-msg');
+    const nextBtn = document.getElementById('draw-next-btn');
+    const wait = document.getElementById('draw-next-wait');
+    if (msg) msg.textContent = gs.lastRoundSummary || 'Manche terminée.';
+    if (nextBtn && wait) {
+      nextBtn.classList.toggle('hidden', !GameHub.isHost);
+      wait.classList.toggle('hidden', GameHub.isHost);
+    }
+  },
+
+  renderFinal(gs) {
+    if (gs.phase !== 'finished') return;
+    const msg = document.getElementById('draw-final-msg');
+    if (!msg) return;
+    const winner = gs.winner;
+    if (winner === 'scott') {
+      msg.textContent = 'Nolwen a perdu 😈 Tu dois dire: "Je t\'aime mon amour Scott" 💕';
+    } else if (winner === 'nolwen') {
+      msg.textContent = 'Scott a perdu 😈 Tu dois dire: "Je t\'aime mon amour Nolwen" 💕';
+    } else {
+      msg.textContent = 'Égalité ! Vous devez vous dire je t\'aime tous les deux 💖';
+    }
+  },
+
+  updateTimer(gs) {
+    const timerEl = document.getElementById('draw-timer');
+    if (!timerEl) return;
+
+    let remaining = Number(gs.timeLimit || 90);
+    if (gs.phase === 'draw') {
+      remaining = Math.max(0, Number(gs.timeLimit || 90) - this.elapsedSeconds(gs));
+    }
+    timerEl.textContent = this.formatTime(remaining);
+    timerEl.style.color = remaining <= 10 && gs.phase === 'draw' ? '#f87171' : 'var(--gold)';
+  },
+
+  manageTicker(gs) {
+    const needsTicker = gs.phase === 'draw' && !gs.roundResolved;
+    if (needsTicker && !this.ticker) {
+      this.ticker = setInterval(() => this.onTick(), 500);
+    } else if (!needsTicker && this.ticker) {
+      clearInterval(this.ticker);
+      this.ticker = null;
+      this._hostBusy = false;
+    }
+  },
+
+  onTick() {
+    if (!this.latestState) return;
+    const gs = this.latestState;
+    this.updateTimer(gs);
+
+    if (!GameHub.isHost || this._hostBusy) return;
+    if (gs.phase !== 'draw' || gs.roundResolved) return;
+
+    const elapsed = this.elapsedSeconds(gs);
+    const tLimit = Number(gs.timeLimit || 90);
+    if (!gs.hint1Done && elapsed >= Number(gs.hint1At || 30)) {
+      this._hostBusy = true;
+      this.applyHint(1).finally(() => { this._hostBusy = false; });
+      return;
+    }
+    if (!gs.hint2Done && elapsed >= Number(gs.hint2At || 60)) {
+      this._hostBusy = true;
+      this.applyHint(2).finally(() => { this._hostBusy = false; });
+      return;
+    }
+    if (elapsed >= tLimit) {
+      this._hostBusy = true;
+      this.resolveTimeout().finally(() => { this._hostBusy = false; });
+    }
+  },
+
+  elapsedSeconds(gs) {
+    if (!gs.startedAt) return 0;
+    return Math.max(0, Math.floor((Date.now() - Number(gs.startedAt)) / 1000));
+  },
+
+  formatTime(totalSec) {
+    const s = Math.max(0, Number(totalSec) || 0);
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  },
+
+  async setMode(mode) {
+    if (!GameHub.isHost || !DRAW_MODE_META[mode]) return;
+    const meta = DRAW_MODE_META[mode];
+    await GameHub.roomRef.update({
+      'gameState/mode': mode,
+      'gameState/phase': 'mode',
+      'gameState/timeLimit': meta.time,
+      'gameState/hint1At': meta.hint1At,
+      'gameState/hint2At': meta.hint2At,
+      'gameState/updatedAt': Date.now(),
+    });
+    SFX.play('select');
+  },
+
+  async startRound() {
+    if (!GameHub.isHost) return;
+    const snap = await GameHub.roomRef.get();
+    const gs = snap.val()?.gameState;
+    if (!gs) return;
+
+    const mode = DRAW_MODE_META[gs.mode] ? gs.mode : 'moyen';
+    const meta = DRAW_MODE_META[mode];
+    const choices = this.pickChoices(mode, normalizeList(gs.lastWords));
+
+    await GameHub.roomRef.update({
+      'gameState/phase': 'choose',
+      'gameState/mode': mode,
+      'gameState/timeLimit': meta.time,
+      'gameState/hint1At': meta.hint1At,
+      'gameState/hint2At': meta.hint2At,
+      'gameState/choices': choices,
+      'gameState/word': '_',
+      'gameState/normalizedWord': '_',
+      'gameState/displayedWord': '_',
+      'gameState/guessedLetters': [],
+      'gameState/revealedLetters': [],
+      'gameState/strokes': [],
+      'gameState/startedAt': 0,
+      'gameState/hint1Done': false,
+      'gameState/hint2Done': false,
+      'gameState/roundResolved': false,
+      'gameState/roundWinner': '_',
+      'gameState/roundPoints': 0,
+      'gameState/lastRoundSummary': '_',
+      'gameState/winner': '_',
+      'gameState/lastWords': choices,
+      'gameState/updatedAt': Date.now(),
+    });
+    SFX.play('start');
+  },
+
+  pickChoices(mode, lastWords = []) {
+    const pool = DRAW_WORD_BANK[mode] || DRAW_WORD_BANK.moyen;
+    const lastSet = new Set(lastWords);
+    let candidates = pool.filter(w => !lastSet.has(w));
+    if (candidates.length < 5) candidates = [...pool];
+    return this.shuffle(candidates).slice(0, 5);
+  },
+
+  shuffle(arr) {
+    const out = [...arr];
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  },
+
+  async pickWord(word) {
+    const snap = await GameHub.roomRef.get();
+    const gs = snap.val()?.gameState || {};
+    if (gs.phase !== 'choose' || gs.drawer !== GameHub.player) return;
+
+    const normalized = normalizeDrawWord(word);
+    const displayed = drawMaskFromRevealed(normalized, new Set());
+
+    await GameHub.roomRef.update({
+      'gameState/phase': 'draw',
+      'gameState/word': word,
+      'gameState/normalizedWord': normalized,
+      'gameState/displayedWord': displayed,
+      'gameState/guessedLetters': [],
+      'gameState/revealedLetters': [],
+      'gameState/strokes': [],
+      'gameState/startedAt': Date.now(),
+      'gameState/hint1Done': false,
+      'gameState/hint2Done': false,
+      'gameState/roundResolved': false,
+      'gameState/roundWinner': '_',
+      'gameState/roundPoints': 0,
+      'gameState/lastRoundSummary': '_',
+      'gameState/updatedAt': Date.now(),
+    });
+    SFX.play('start');
+  },
+
+  async guessLetter(letter) {
+    const gs = this.latestState;
+    if (!gs) return;
+    const drawer = gs.drawer || 'scott';
+    const guesser = otherPlayer(drawer);
+    if (GameHub.player !== guesser || gs.phase !== 'draw' || gs.roundResolved) return;
+
+    const now = Date.now();
+    await GameHub.roomRef.child('gameState').transaction((state) => {
+      if (!state || state.phase !== 'draw' || state.roundResolved) return state;
+
+      const stateDrawer = state.drawer || 'scott';
+      const stateGuesser = otherPlayer(stateDrawer);
+      if (stateGuesser !== GameHub.player) return state;
+
+      const normalized = state.normalizedWord || normalizeDrawWord(state.word || '');
+      const guessedSet = new Set(normalizeList(state.guessedLetters));
+      if (guessedSet.has(letter)) return state;
+      guessedSet.add(letter);
+
+      const revealedSet = new Set(normalizeList(state.revealedLetters));
+      if (normalized.includes(letter)) revealedSet.add(letter);
+
+      state.guessedLetters = Array.from(guessedSet);
+      state.revealedLetters = Array.from(revealedSet);
+      state.displayedWord = drawMaskFromRevealed(normalized, revealedSet);
+      state.updatedAt = now;
+
+      if (!state.displayedWord.includes('_')) {
+        const elapsed = Math.max(0, Math.floor((now - Number(state.startedAt || now)) / 1000));
+        const remaining = Math.max(0, Number(state.timeLimit || 90) - elapsed);
+        const points = DrawGame.computePoints(state.mode, remaining, Number(state.timeLimit || 90));
+        state.scores = state.scores || { scott: 0, nolwen: 0 };
+        state.scores[stateGuesser] = (state.scores[stateGuesser] || 0) + points;
+        state.roundResolved = true;
+        state.roundWinner = stateGuesser;
+        state.roundPoints = points;
+        state.displayedWord = normalized;
+        state.lastRoundSummary = `${stateGuesser === 'scott' ? 'Scott' : 'Nolwen'} a trouvé "${state.word}" (+${points})`;
+
+        const target = Number(state.targetScore || 5);
+        if ((state.scores[stateGuesser] || 0) >= target) {
+          state.phase = 'finished';
+          state.winner = stateGuesser;
+        } else {
+          state.phase = 'roundResult';
+          state.winner = '_';
+        }
+      }
+      return state;
+    });
+    SFX.play('answer');
+  },
+
+  computePoints(mode, remaining, total) {
+    const ratio = total > 0 ? (remaining / total) : 0;
+    if (ratio >= 0.66) return 3;
+    if (ratio >= 0.33) return 2;
+    return 1;
+  },
+
+  async applyHint(index) {
+    const key = index === 1 ? 'hint1Done' : 'hint2Done';
+    const now = Date.now();
+    await GameHub.roomRef.child('gameState').transaction((state) => {
+      if (!state || state.phase !== 'draw' || state.roundResolved) return state;
+      if (state[key]) return state;
+
+      const normalized = state.normalizedWord || normalizeDrawWord(state.word || '');
+      const alphas = [...normalized].filter(ch => /[A-Z0-9]/.test(ch));
+      if (!alphas.length) return state;
+      const target = index === 1 ? alphas[0] : (alphas[1] || alphas[0]);
+
+      const revealedSet = new Set(normalizeList(state.revealedLetters));
+      revealedSet.add(target);
+      state.revealedLetters = Array.from(revealedSet);
+      state.displayedWord = drawMaskFromRevealed(normalized, revealedSet);
+      state[key] = true;
+      state.updatedAt = now;
+
+      if (!state.displayedWord.includes('_')) {
+        state.roundResolved = true;
+        state.roundWinner = '_';
+        state.roundPoints = 0;
+        state.phase = 'roundResult';
+        state.lastRoundSummary = `Indices complets ! Le mot était "${state.word}".`;
+        state.displayedWord = normalized;
+      }
+      return state;
+    });
+  },
+
+  async resolveTimeout() {
+    const now = Date.now();
+    await GameHub.roomRef.child('gameState').transaction((state) => {
+      if (!state || state.phase !== 'draw' || state.roundResolved) return state;
+      const normalized = state.normalizedWord || normalizeDrawWord(state.word || '');
+      state.roundResolved = true;
+      state.roundWinner = '_';
+      state.roundPoints = 0;
+      state.phase = 'roundResult';
+      state.displayedWord = normalized;
+      state.lastRoundSummary = `Temps écoulé ! Le mot était "${state.word}".`;
+      state.updatedAt = now;
+      return state;
+    });
+    SFX.play('wrong');
+  },
+
+  async nextRound() {
+    if (!GameHub.isHost) return;
+    const snap = await GameHub.roomRef.get();
+    const gs = snap.val()?.gameState;
+    if (!gs || gs.phase !== 'roundResult') return;
+
+    const mode = DRAW_MODE_META[gs.mode] ? gs.mode : 'moyen';
+    const meta = DRAW_MODE_META[mode];
+    const nextDrawer = otherPlayer(gs.drawer || 'scott');
+    const choices = this.pickChoices(mode, normalizeList(gs.lastWords));
+
+    await GameHub.roomRef.update({
+      'gameState/round': Number(gs.round || 1) + 1,
+      'gameState/drawer': nextDrawer,
+      'gameState/phase': 'choose',
+      'gameState/timeLimit': meta.time,
+      'gameState/hint1At': meta.hint1At,
+      'gameState/hint2At': meta.hint2At,
+      'gameState/choices': choices,
+      'gameState/word': '_',
+      'gameState/normalizedWord': '_',
+      'gameState/displayedWord': '_',
+      'gameState/guessedLetters': [],
+      'gameState/revealedLetters': [],
+      'gameState/strokes': [],
+      'gameState/startedAt': 0,
+      'gameState/hint1Done': false,
+      'gameState/hint2Done': false,
+      'gameState/roundResolved': false,
+      'gameState/roundWinner': '_',
+      'gameState/roundPoints': 0,
+      'gameState/lastRoundSummary': '_',
+      'gameState/lastWords': choices,
+      'gameState/updatedAt': Date.now(),
+    });
+    SFX.play('next');
+  },
+
+  renderCanvas(gs) {
+    if (!this.canvas || !this.ctx) return;
+    const ctx = this.ctx;
+    const canvas = this.canvas;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // fond sombre interne
+    ctx.save();
+    ctx.fillStyle = '#110b23';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+
+    const strokes = normalizeList(gs?.strokes);
+    strokes.forEach(st => this.drawStroke(st));
+  },
+
+  drawStroke(stroke) {
+    if (!this.ctx || !this.canvas || !stroke) return;
+    const points = normalizeList(stroke.points).map(p => Array.isArray(p) ? p : [p?.x, p?.y]).filter(p => p.length >= 2);
+    if (!points.length) return;
+
+    const ctx = this.ctx;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    ctx.save();
+    ctx.globalCompositeOperation = stroke.erase ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = stroke.erase ? 'rgba(0,0,0,1)' : (stroke.color || '#ffffff');
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = Math.max(1, Number(stroke.size) || 4);
+    ctx.beginPath();
+    ctx.moveTo(points[0][0] * w, points[0][1] * h);
+    for (let i = 1; i < points.length; i++) {
+      ctx.lineTo(points[i][0] * w, points[i][1] * h);
+    }
+    ctx.stroke();
+
+    if (points.length === 1) {
+      ctx.beginPath();
+      ctx.arc(points[0][0] * w, points[0][1] * h, Math.max(1, (Number(stroke.size) || 4) / 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  },
+
+  normPointFromEvent(e) {
+    if (!this.canvas) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return null;
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    return [Math.min(1, Math.max(0, x)), Math.min(1, Math.max(0, y))];
+  },
+
+  startDraw(e) {
+    const gs = this.latestState;
+    if (!gs || !this.canDraw(gs)) return;
+    e.preventDefault();
+    this.drawing = true;
+    const p = this.normPointFromEvent(e);
+    if (!p) return;
+    this.currentStroke = {
+      by: GameHub.player,
+      color: this.brushColor,
+      size: this.brushSize,
+      erase: this.eraser,
+      points: [p],
+    };
+    this.drawStroke(this.currentStroke);
+  },
+
+  moveDraw(e) {
+    if (!this.drawing || !this.currentStroke || !this.ctx || !this.canvas) return;
+    e.preventDefault();
+    const p = this.normPointFromEvent(e);
+    if (!p) return;
+    const pts = this.currentStroke.points;
+    pts.push(p);
+
+    // segment instantané (aperçu fluide)
+    const prev = pts[pts.length - 2];
+    const curr = pts[pts.length - 1];
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = this.currentStroke.erase ? 'destination-out' : 'source-over';
+    ctx.strokeStyle = this.currentStroke.erase ? 'rgba(0,0,0,1)' : this.currentStroke.color;
+    ctx.lineWidth = this.currentStroke.size;
+    ctx.beginPath();
+    ctx.moveTo(prev[0] * this.canvas.width, prev[1] * this.canvas.height);
+    ctx.lineTo(curr[0] * this.canvas.width, curr[1] * this.canvas.height);
+    ctx.stroke();
+    ctx.restore();
+  },
+
+  endDraw(e) {
+    if (!this.drawing) return;
+    e.preventDefault();
+    this.drawing = false;
+    const stroke = this.currentStroke;
+    this.currentStroke = null;
+    if (!stroke || !stroke.points?.length) return;
+    this.pushStroke(stroke);
+  },
+
+  canDraw(gs) {
+    return gs.phase === 'draw' && !gs.roundResolved && gs.drawer === GameHub.player;
+  },
+
+  async pushStroke(stroke) {
+    const gs = this.latestState;
+    if (!gs || !GameHub.roomRef) return;
+    const strokes = [...normalizeList(gs.strokes), stroke];
+    await GameHub.roomRef.update({
+      'gameState/strokes': strokes,
+      'gameState/updatedAt': Date.now(),
+    });
+  },
+
+  async undo() {
+    const gs = this.latestState;
+    if (!gs || !this.canDraw(gs)) return;
+    const strokes = normalizeList(gs.strokes);
+    const idx = [...strokes].map((s, i) => ({ s, i })).reverse().find(x => x.s?.by === GameHub.player)?.i;
+    if (idx === undefined) return;
+    const next = [...strokes];
+    next.splice(idx, 1);
+    await GameHub.roomRef.update({ 'gameState/strokes': next, 'gameState/updatedAt': Date.now() });
+  },
+
+  async clearCanvas() {
+    const gs = this.latestState;
+    if (!gs || !this.canDraw(gs)) return;
+    await GameHub.roomRef.update({ 'gameState/strokes': [], 'gameState/updatedAt': Date.now() });
+  },
+
+  setColor(color) {
+    this.eraser = false;
+    this.brushColor = color;
+    this.updateToolUi();
+  },
+
+  setSize(size) {
+    const n = Number(size);
+    this.brushSize = Number.isFinite(n) ? Math.max(2, Math.min(20, n)) : 6;
+    this.updateToolUi();
+  },
+
+  toggleEraser() {
+    this.eraser = !this.eraser;
+    this.updateToolUi();
   },
 };

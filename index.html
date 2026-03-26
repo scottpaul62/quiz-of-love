@@ -7,12 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260326-visual-chat-1" />
+  <link rel="stylesheet" href="style.css?v=20260326-draw-stars-1" />
 </head>
 <body>
 
   <!-- Fond animé -->
   <div id="aurora-bg" aria-hidden="true"></div>
+  <div id="shooting-stars-bg" aria-hidden="true"></div>
   <div id="hearts-bg" aria-hidden="true"></div>
   <div id="confetti-container" aria-hidden="true"></div>
 
@@ -129,6 +130,10 @@
           <button class="mini-game-card" onclick="App.launchMiniGame('bataille')">
             <span class="mg-emoji">&#128674;</span>
             <span class="mg-name">Bataille<br/>Navale</span>
+          </button>
+          <button class="mini-game-card" onclick="App.launchMiniGame('dessin')">
+            <span class="mg-emoji">&#127912;</span>
+            <span class="mg-name">Dessin<br/>Duel</span>
           </button>
         </div>
         <p class="code-hint">M&ecirc;me code, m&ecirc;me salon, changez de jeu sans reconnecter.</p>
@@ -420,6 +425,82 @@
     </div>
   </div>
 
+  <!-- ════════ DESSIN DUEL ════════ -->
+  <div id="screen-dessin" class="screen">
+    <div class="mini-game-wrapper draw-wrapper">
+      <div class="mini-header">
+        <button class="btn-back" onclick="GameHub.exitGame()">&larr; Quitter</button>
+        <span class="mini-title">Dessin Duel 🎨</span>
+        <div class="mini-scores-header"><span id="draw-score-scott">0</span><span class="mini-score-sep">:</span><span id="draw-score-nolwen">0</span></div>
+      </div>
+
+      <div class="draw-topbar">
+        <p class="mini-status" id="draw-status">En attente…</p>
+        <div class="draw-timer-pill" id="draw-timer">01:30</div>
+      </div>
+
+      <div id="draw-mode-panel" class="draw-mode-panel hidden">
+        <p class="draw-mode-title">Mode de dessin</p>
+        <div class="draw-mode-grid">
+          <button class="draw-mode-btn" data-mode="rapide" onclick="DrawGame.setMode('rapide')">⚡ Rapide<br/><small>1:00</small></button>
+          <button class="draw-mode-btn" data-mode="moyen" onclick="DrawGame.setMode('moyen')">🎯 Moyen<br/><small>1:30</small></button>
+          <button class="draw-mode-btn" data-mode="hard" onclick="DrawGame.setMode('hard')">🧠 Hard<br/><small>2:00</small></button>
+        </div>
+        <button id="draw-start-btn" class="btn btn-primary" onclick="DrawGame.startRound()">Lancer la manche 🎬</button>
+      </div>
+
+      <div id="draw-word-choice" class="draw-word-choice hidden">
+        <p class="draw-mode-title">Choisis ton mot (5 choix)</p>
+        <div id="draw-word-options" class="draw-word-options"></div>
+      </div>
+
+      <div class="draw-word-row">
+        <div id="draw-word-boxes" class="draw-word-boxes"></div>
+        <p id="draw-hint-msg" class="draw-hint-msg">Indices automatiques pendant la manche…</p>
+      </div>
+
+      <div class="draw-canvas-frame">
+        <canvas id="draw-canvas" width="1200" height="720"></canvas>
+      </div>
+
+      <div id="draw-tools" class="draw-tools hidden">
+        <div class="draw-colors">
+          <button class="draw-color-btn active" data-color="#ffffff" onclick="DrawGame.setColor('#ffffff')"></button>
+          <button class="draw-color-btn" data-color="#ff6b9d" onclick="DrawGame.setColor('#ff6b9d')"></button>
+          <button class="draw-color-btn" data-color="#60a5fa" onclick="DrawGame.setColor('#60a5fa')"></button>
+          <button class="draw-color-btn" data-color="#34d399" onclick="DrawGame.setColor('#34d399')"></button>
+          <button class="draw-color-btn" data-color="#fbbf24" onclick="DrawGame.setColor('#fbbf24')"></button>
+        </div>
+        <div class="draw-size-wrap">
+          <label for="draw-size-range">Taille</label>
+          <input id="draw-size-range" type="range" min="2" max="20" step="1" value="6" oninput="DrawGame.setSize(this.value)" />
+          <span id="draw-size-label">6</span>
+        </div>
+        <div class="draw-tool-buttons">
+          <button id="draw-eraser-btn" class="btn btn-secondary" onclick="DrawGame.toggleEraser()">🩹 Gomme</button>
+          <button class="btn btn-secondary" onclick="DrawGame.undo()">↶ Undo</button>
+          <button class="btn btn-secondary" onclick="DrawGame.clearCanvas()">🧼 Effacer</button>
+        </div>
+      </div>
+
+      <div id="draw-guess-panel" class="draw-guess-panel hidden">
+        <p class="draw-guess-title">Trouve le mot avec les lettres 👇</p>
+        <div id="draw-letter-grid" class="draw-letter-grid"></div>
+      </div>
+
+      <div id="draw-round-result" class="mini-result hidden">
+        <p id="draw-result-msg" class="mini-result-msg"></p>
+        <button id="draw-next-btn" class="btn btn-primary" onclick="DrawGame.nextRound()">Manche suivante ➜</button>
+        <p id="draw-next-wait" class="next-waiting hidden">En attente de l'hôte…</p>
+      </div>
+
+      <div id="draw-final" class="mini-result hidden">
+        <p id="draw-final-msg" class="mini-result-msg"></p>
+        <button class="btn btn-primary" onclick="GameHub.exitGame()">Retour au salon</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
@@ -427,9 +508,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-  <script src="questions.js?v=20260326-visual-chat-1"></script>
-  <script src="games.js?v=20260326-visual-chat-1"></script>
-  <script src="app.js?v=20260326-avatar-voice-2"></script>
+  <script src="questions.js?v=20260326-draw-stars-1"></script>
+  <script src="games.js?v=20260326-draw-stars-1"></script>
+  <script src="app.js?v=20260326-draw-stars-1"></script>
 </body>
 </html>
 

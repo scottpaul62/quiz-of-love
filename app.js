@@ -60,9 +60,75 @@ const AvatarVoices = {
   cooldownMs: 5000,
   lastPlayedAt: { scott: 0, nolwen: 0 },
   players: {},
+  decodedBuffers: {},
+  _audioCtx: null,
+  _unlockHooked: false,
   sources: {
     scott: 'Scott.m4a',
     nolwen: 'Nono.m4a',
+  },
+
+  get ctx() {
+    if (!this._audioCtx) {
+      try {
+        this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (_) {
+        this._audioCtx = null;
+      }
+    }
+    return this._audioCtx;
+  },
+
+  initUnlockHooks() {
+    if (this._unlockHooked) return;
+    this._unlockHooked = true;
+    const unlock = () => this.unlock();
+    ['pointerdown', 'touchstart', 'keydown', 'click'].forEach(evt => {
+      window.addEventListener(evt, unlock, { passive: true });
+    });
+  },
+
+  unlock() {
+    const ctx = this.ctx;
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  },
+
+  async _loadDecodedBuffer(key) {
+    if (this.decodedBuffers[key]) return this.decodedBuffers[key];
+    const ctx = this.ctx;
+    if (!ctx) return null;
+    const res = await fetch(this.sources[key], { cache: 'force-cache' });
+    const arr = await res.arrayBuffer();
+    const buf = await ctx.decodeAudioData(arr.slice(0));
+    this.decodedBuffers[key] = buf;
+    return buf;
+  },
+
+  async _playViaWebAudio(key) {
+    const ctx = this.ctx;
+    if (!ctx) return false;
+    const buf = await this._loadDecodedBuffer(key);
+    if (!buf) return false;
+    const src = ctx.createBufferSource();
+    const gain = ctx.createGain();
+    gain.gain.value = 1.0;
+    src.buffer = buf;
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(0);
+    return true;
+  },
+
+  _pulseCard(key) {
+    const card = document.getElementById('card-' + key);
+    if (!card) return;
+    card.classList.remove('voice-pulse');
+    // Force reflow pour rejouer l'anim à chaque clic
+    void card.offsetWidth;
+    card.classList.add('voice-pulse');
+    setTimeout(() => card.classList.remove('voice-pulse'), 460);
   },
 
   play(player) {
@@ -73,17 +139,40 @@ const AvatarVoices = {
     const elapsed = now - (this.lastPlayedAt[key] || 0);
     if (elapsed < this.cooldownMs) return;
     this.lastPlayedAt[key] = now;
+    this.unlock();
+    this._pulseCard(key);
+    if (navigator.vibrate) navigator.vibrate(24);
 
     let audio = this.players[key];
     if (!audio) {
       audio = new Audio(this.sources[key]);
       audio.preload = 'auto';
+      audio.playsInline = true;
       audio.volume = 0.95;
       this.players[key] = audio;
     }
 
     try { audio.currentTime = 0; } catch (_) {}
-    audio.play().catch(() => {});
+    const htmlPlay = new Promise((resolve, reject) => {
+      try {
+        const p = audio.play();
+        if (p && typeof p.then === 'function') {
+          p.then(() => resolve(true)).catch(reject);
+        } else {
+          resolve(true);
+        }
+      } catch (e) {
+        reject(e);
+      }
+    });
+
+    Promise.allSettled([htmlPlay, this._playViaWebAudio(key)])
+      .then(results => {
+        const ok = results.some(r => r.status === 'fulfilled' && r.value === true);
+        if (!ok) {
+          App.toast("Audio limité pendant l'appel 📵");
+        }
+      });
   },
 };
 
@@ -1060,6 +1149,31 @@ function initHearts() {
   }
 }
 
+function initShootingStars() {
+  const container = document.getElementById('shooting-stars-bg');
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const star = document.createElement('div');
+    star.className = 'shooting-star';
+    const sx = 50 + Math.random() * 45;
+    const sy = 4 + Math.random() * 54;
+    const len = 90 + Math.random() * 120;
+    const dur = 2.4 + Math.random() * 2.8;
+    const delay = Math.random() * 6;
+    const angle = -18 - Math.random() * 24;
+    star.style.cssText = `
+      --sx: ${sx}%;
+      --sy: ${sy}%;
+      --len: ${len}px;
+      --dur: ${dur}s;
+      --delay: ${delay}s;
+      --angle: ${angle}deg;
+    `;
+    container.appendChild(star);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════
 //  UTILITAIRES
 // ═══════════════════════════════════════════════════════════
@@ -1137,7 +1251,9 @@ const CatBounce = {
 // ═══════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
   initHearts();
+  initShootingStars();
   CatBounce.init();
+  AvatarVoices.initUnlockHooks();
   App.updateChatDockVisibility();
 
   // Stopper le chat quand on quitte l'accueil
