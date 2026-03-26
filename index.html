@@ -7,11 +7,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css?v=20260325-emoji-fix2" />
+  <link rel="stylesheet" href="style.css?v=20260326-visual-chat-1" />
 </head>
 <body>
 
   <!-- Fond animé -->
+  <div id="aurora-bg" aria-hidden="true"></div>
   <div id="hearts-bg" aria-hidden="true"></div>
   <div id="confetti-container" aria-hidden="true"></div>
 
@@ -392,6 +393,33 @@
     </div>
   </div>
 
+  <!-- Messages live (4s) -->
+  <div id="live-msg-layer" class="live-msg-layer" aria-live="polite"></div>
+
+  <!-- Chat rapide du salon -->
+  <div id="chat-dock" class="chat-dock hidden">
+    <div class="chat-emoji-row">
+      <button class="chat-emoji-btn" onclick="App.insertChatEmoji('💕')" type="button">💕</button>
+      <button class="chat-emoji-btn" onclick="App.insertChatEmoji('😏')" type="button">😏</button>
+      <button class="chat-emoji-btn" onclick="App.insertChatEmoji('😂')" type="button">😂</button>
+      <button class="chat-emoji-btn" onclick="App.insertChatEmoji('🔥')" type="button">🔥</button>
+      <button class="chat-emoji-btn" onclick="App.insertChatEmoji('😘')" type="button">😘</button>
+      <button class="chat-emoji-btn" onclick="App.insertChatEmoji('👀')" type="button">👀</button>
+    </div>
+    <div class="chat-input-row">
+      <input
+        id="chat-live-input"
+        class="chat-live-input"
+        type="text"
+        maxlength="140"
+        autocomplete="off"
+        placeholder="Écris un message..."
+        onkeydown="if(event.key==='Enter'){event.preventDefault();App.sendLiveMessage();}"
+      />
+      <button class="btn btn-primary chat-send-btn" onclick="App.sendLiveMessage()" type="button">Envoyer 💌</button>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast hidden"></div>
 
@@ -399,9 +427,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-  <script src="questions.js?v=20260325-emoji-fix2"></script>
-  <script src="games.js?v=20260325-emoji-fix2"></script>
-  <script src="app.js?v=20260325-emoji-fix2"></script>
+  <script src="questions.js?v=20260326-visual-chat-1"></script>
+  <script src="games.js?v=20260326-visual-chat-1"></script>
+  <script src="app.js?v=20260326-visual-chat-1"></script>
 </body>
 </html>
 

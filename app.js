@@ -43,6 +43,10 @@ const State = {
   myAnswer:      null,
   computing:     false,  // garde anti-doublon pour computeResult
   lastMiniLeftAt: 0,
+  lastRoomLeftAt: 0,
+  lastLiveMessageId: '_',
+  joinedAt: 0,
+  _leftRef: null,
 };
 
 const MODE_META = {
@@ -61,6 +65,9 @@ const App = {
   showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
+    if (typeof App.updateChatDockVisibility === 'function') {
+      App.updateChatDockVisibility();
+    }
   },
 
   // ─── Choix du joueur ────────────────────────────────────
@@ -74,6 +81,7 @@ const App = {
     card.classList.add('selected');
     card.querySelector('.player-check').classList.remove('hidden');
     document.getElementById('room-options').classList.remove('hidden');
+    App.updateChatDockVisibility();
     SFX.play('select');
   },
 
@@ -85,6 +93,10 @@ const App = {
     State.roomCode = code;
     State.isHost   = true;
     State.lastMiniLeftAt = 0;
+    State.lastRoomLeftAt = 0;
+    State.lastLiveMessageId = '_';
+    State.joinedAt = Date.now();
+    App.clearLiveMessages();
 
     const roomData = {
       host:          State.player,
@@ -103,6 +115,7 @@ const App = {
       scores:        { scott: 0, nolwen: 0 },
       answers:       { scott: null, nolwen: null },
       questionStart: 0,
+      liveMessage:   { id: '_', from: '_', text: '', at: 0 },
       createdAt:     Date.now(),
     };
 
@@ -131,12 +144,16 @@ const App = {
     State.roomCode = code;
     State.isHost   = false;
     State.lastMiniLeftAt = 0;
+    State.lastRoomLeftAt = 0;
+    State.joinedAt = Date.now();
+    App.clearLiveMessages();
 
     if (isFirebaseReady()) {
       try {
         const snap = await db.ref('rooms/' + code).get();
         if (!snap.exists()) { App.toast("Code introuvable 🔍 Vérifie le code !"); return; }
         const data = snap.val();
+        State.lastLiveMessageId = data.liveMessage?.id || '_';
         if (data.guest && data.guest !== State.player) {
           App.toast("Cette salle est déjà complète !"); return;
         }
@@ -162,8 +179,12 @@ const App = {
     State.roomRef = db.ref('rooms/' + code);
 
     // Déconnexion brutale (fermeture onglet) → signaler aux autres
-    State._leftRef = db.ref('rooms/' + code + '/leftBy');
-    State._leftRef.onDisconnect().set(State.player);
+    if (State._leftRef) { State._leftRef.onDisconnect().cancel(); }
+    State._leftRef = db.ref('rooms/' + code);
+    State._leftRef.onDisconnect().update({
+      leftBy: State.player,
+      leftAt: firebase.database.ServerValue.TIMESTAMP,
+    });
 
     State.roomRef.on('value', snap => {
       if (!snap.exists()) return;
@@ -174,6 +195,7 @@ const App = {
   // ─── Quitter proprement ──────────────────────────────────
   leaveRoom() {
     App.stopTimer();
+    App.clearLiveMessages();
     if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function') {
       GameHub.cleanup();
     }
@@ -195,6 +217,11 @@ const App = {
     State.myAnswer = null;
     State.computing = false;
     State.lastStatus = null;
+    State.lastRoomLeftAt = 0;
+    State.lastLiveMessageId = '_';
+    State.joinedAt = 0;
+    const chatInput = document.getElementById('chat-live-input');
+    if (chatInput) chatInput.value = '';
     App.showScreen('screen-setup');
   },
 
@@ -250,8 +277,13 @@ const App = {
 
   handleRoomUpdate(data) {
     const status = data.status || 'lobby';
+    App.handleLiveMessage(data.liveMessage);
 
-    if (data.leftBy && data.leftBy !== '_' && data.leftBy !== State.player && data.activeFlow !== 'mini') {
+    const roomLeftAt = Number(data.leftAt || 0);
+    const isFreshLeave = !!roomLeftAt && roomLeftAt !== State.lastRoomLeftAt && roomLeftAt >= (State.joinedAt || 0);
+    if (isFreshLeave) State.lastRoomLeftAt = roomLeftAt;
+
+    if (isFreshLeave && data.leftBy && data.leftBy !== '_' && data.leftBy !== State.player && data.activeFlow !== 'mini') {
       const name = data.leftBy === 'scott' ? 'Scott' : 'Nolwen';
       if (State._leftRef) { State._leftRef.onDisconnect().cancel(); State._leftRef = null; }
       if (State.roomRef) { State.roomRef.off(); State.roomRef = null; }
@@ -279,6 +311,7 @@ const App = {
         GameHub.attachSharedMini(data);
       }
       State.lastStatus = status;
+      App.updateChatDockVisibility();
       return;
     }
     if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function' && GameHub.active) {
@@ -351,6 +384,7 @@ const App = {
     }
 
     State.lastStatus = status;
+    App.updateChatDockVisibility();
   },
 
   // ─── Sélection du mode ──────────────────────────────────
@@ -500,6 +534,92 @@ const App = {
       .catch(() => App.toast("Code : " + State.roomCode));
   },
 
+  updateChatDockVisibility() {
+    const dock = document.getElementById('chat-dock');
+    if (!dock) return;
+    const activeId = document.querySelector('.screen.active')?.id || '';
+    const shouldShow = !!State.roomCode && !!State.player && activeId !== 'screen-welcome' && activeId !== 'screen-setup';
+    dock.classList.toggle('hidden', !shouldShow);
+    document.body.classList.toggle('with-chat', shouldShow);
+    if (!shouldShow) {
+      const input = document.getElementById('chat-live-input');
+      if (input) input.blur();
+    }
+  },
+
+  clearLiveMessages() {
+    const layer = document.getElementById('live-msg-layer');
+    if (layer) layer.innerHTML = '';
+  },
+
+  insertChatEmoji(emoji) {
+    const input = document.getElementById('chat-live-input');
+    if (!input) return;
+    const base = (input.value || '').trim();
+    input.value = base ? `${base} ${emoji}` : emoji;
+    input.focus();
+    input.selectionStart = input.selectionEnd = input.value.length;
+  },
+
+  async sendLiveMessage() {
+    if (!State.roomRef || !State.roomCode || !State.player || !isFirebaseReady()) return;
+    const input = document.getElementById('chat-live-input');
+    if (!input) return;
+    const text = (input.value || '').trim().replace(/\s+/g, ' ');
+    if (!text) return;
+
+    const payload = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      from: State.player,
+      text: text.slice(0, 140),
+      at: Date.now(),
+    };
+
+    input.value = '';
+    try {
+      await State.roomRef.child('liveMessage').set(payload);
+      SFX.play('chat');
+    } catch (_) {
+      App.toast("Message non envoyé 😕");
+    }
+  },
+
+  handleLiveMessage(msg) {
+    if (!msg || !msg.id || msg.id === '_' || msg.id === State.lastLiveMessageId) return;
+    State.lastLiveMessageId = msg.id;
+    if (!msg.text) return;
+    App.showLiveMessageBubble(msg);
+    if (msg.from && msg.from !== State.player) {
+      SFX.play('chat');
+    }
+  },
+
+  showLiveMessageBubble(msg) {
+    const layer = document.getElementById('live-msg-layer');
+    if (!layer) return;
+
+    const bubble = document.createElement('div');
+    const isMine = msg.from === State.player;
+    bubble.className = 'live-msg-bubble' + (isMine ? ' mine' : '');
+
+    const stackIndex = layer.children.length % 5;
+    bubble.style.setProperty('--top', `calc(12% + ${stackIndex * 56}px)`);
+
+    const fromLabel = document.createElement('span');
+    fromLabel.className = 'live-msg-name';
+    fromLabel.textContent = msg.from === 'scott' ? 'Scott' : msg.from === 'nolwen' ? 'Nolwen' : 'Salon';
+
+    const msgText = document.createElement('span');
+    msgText.className = 'live-msg-text';
+    msgText.textContent = msg.text;
+
+    bubble.appendChild(fromLabel);
+    bubble.appendChild(msgText);
+    layer.appendChild(bubble);
+
+    setTimeout(() => bubble.remove(), 4200);
+  },
+
   // ─── Toast ───────────────────────────────────────────────
   toast(msg, duration = 2800) {
     const t = document.getElementById('toast');
@@ -525,6 +645,7 @@ const App = {
       player: null, roomCode: null, isHost: false, mode: null,
       selectedMode: null, roomRef: null, lastStatus: null,
       myAnswer: null, computing: false, _lastQ: undefined,
+      lastMiniLeftAt: 0, lastRoomLeftAt: 0, lastLiveMessageId: '_', joinedAt: 0,
     });
 
     document.querySelectorAll('.player-card').forEach(c => {
@@ -533,6 +654,8 @@ const App = {
     });
     document.getElementById('room-options').classList.add('hidden');
     document.getElementById('join-code-input').value = '';
+    const chatInput = document.getElementById('chat-live-input');
+    if (chatInput) chatInput.value = '';
     document.getElementById('mode-select').classList.add('hidden');
     const salonGames = document.getElementById('salon-games');
     if (salonGames) salonGames.classList.add('hidden');
@@ -550,7 +673,9 @@ const App = {
     if (State._leftRef) { State._leftRef.onDisconnect().cancel(); State._leftRef = null; }
     if (State.roomRef)  { State.roomRef.off(); State.roomRef = null; }
 
+    App.clearLiveMessages();
     App.showScreen('screen-welcome');
+    App.updateChatDockVisibility();
     SFX.play('select');
   },
 };
@@ -760,6 +885,10 @@ const SFX = {
         [523, 659, 784, 1047, 1319].forEach((f, i) => this._tone(f, 'sine', 0.35, 0.2, i * 0.1));
         break;
       case 'next': this._tone(440, 'sine', 0.1, 0.1); break;
+      case 'chat':
+        this._tone(880, 'triangle', 0.08, 0.08, 0);
+        this._tone(1175, 'triangle', 0.11, 0.07, 0.08);
+        break;
       case 'meow':
         // Miaou de chaton synthétique
         if (!this.ctx) break;
@@ -858,6 +987,10 @@ function initHearts() {
     '\u{1F338}',    // 🌸
     '\u{1F49D}',    // 💝
     '\u{1F339}',    // 🌹
+    '\u{1F929}',    // 🤩
+    '\u{1F970}',    // 🥰
+    '\u{1F60F}',    // 😏
+    '\u{1F525}',    // 🔥
   ];
   for (let i = 0; i < 20; i++) {
     const h = document.createElement('div');
@@ -888,7 +1021,7 @@ const CatBounce = {
   el: null,
   x: 0, y: 0,
   vx: 2.8, vy: 2.2,
-  size: 80,
+  size: 90,
   raf: null,
   active: false,
   lastMeow: 0,
@@ -896,6 +1029,7 @@ const CatBounce = {
   init() {
     this.el = document.getElementById('cat-bounce');
     if (!this.el) return;
+    if (this.active) return;
     this.x = Math.random() * (window.innerWidth  - this.size);
     this.y = Math.random() * (window.innerHeight - this.size);
     this.el.style.display = 'block';
@@ -906,11 +1040,12 @@ const CatBounce = {
   stop() {
     this.active = false;
     if (this.raf) cancelAnimationFrame(this.raf);
+    this.raf = null;
     if (this.el) this.el.style.display = 'none';
   },
 
   loop() {
-    if (!this.active) return;
+    if (!this.active || !this.el) return;
     const W = window.innerWidth  - this.size;
     const H = window.innerHeight - this.size;
     const now = Date.now();
@@ -949,6 +1084,7 @@ const CatBounce = {
 document.addEventListener('DOMContentLoaded', () => {
   initHearts();
   CatBounce.init();
+  App.updateChatDockVisibility();
 
   // Stopper le chat quand on quitte l'accueil
   const origShowScreen = App.showScreen.bind(App);
@@ -959,5 +1095,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       CatBounce.stop();
     }
+    App.updateChatDockVisibility();
   };
 });

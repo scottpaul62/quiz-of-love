@@ -13,6 +13,8 @@ const GameHub = {
   _leftRef: null,
   sessionId: 0,
   active: false,
+  joinedAt: 0,
+  lastLeftAt: 0,
 
   select(type) {
     if (!State.roomCode) { App.toast("Rejoins d'abord le salon avec le code."); return; }
@@ -45,6 +47,8 @@ const GameHub = {
     this.isHost = !!State.isHost;
     this.sessionId = nextSession;
     this.active = true;
+    this.joinedAt = Date.now();
+    this.lastLeftAt = 0;
 
     this.setupListener(this.roomCode);
 
@@ -58,6 +62,7 @@ const GameHub = {
         sessionId: this.sessionId,
         gameState: gs,
         leftBy: '_',
+        leftAt: 0,
         createdAt: Date.now(),
       });
     }
@@ -68,8 +73,11 @@ const GameHub = {
     if (this.roomRef) this.roomRef.off();
     this.roomRef = db.ref('games/' + code);
     if (this._leftRef) { this._leftRef.onDisconnect().cancel(); }
-    this._leftRef = db.ref('games/' + code + '/leftBy');
-    this._leftRef.onDisconnect().set(this.player);
+    this._leftRef = db.ref('games/' + code);
+    this._leftRef.onDisconnect().update({
+      leftBy: this.player,
+      leftAt: firebase.database.ServerValue.TIMESTAMP,
+    });
 
     this.roomRef.on('value', snap => {
       if (!snap.exists()) return;
@@ -77,7 +85,11 @@ const GameHub = {
 
       if (data.sessionId && this.sessionId && data.sessionId !== this.sessionId) return;
 
-      if (data.leftBy && data.leftBy !== '_' && data.leftBy !== GameHub.player) {
+      const leftAt = Number(data.leftAt || 0);
+      const freshLeft = !!leftAt && leftAt !== GameHub.lastLeftAt && leftAt >= (GameHub.joinedAt || 0);
+      if (freshLeft) GameHub.lastLeftAt = leftAt;
+
+      if (freshLeft && data.leftBy && data.leftBy !== '_' && data.leftBy !== GameHub.player) {
         const name = data.leftBy === 'scott' ? 'Scott' : 'Nolwen';
         GameHub.cleanup();
         App.showScreen('screen-lobby');
@@ -119,6 +131,8 @@ const GameHub = {
     if (this._leftRef) { this._leftRef.onDisconnect().cancel(); this._leftRef = null; }
     this.active = false;
     this.sessionId = 0;
+    this.joinedAt = 0;
+    this.lastLeftAt = 0;
     this.type = null;
     setGameDot('scott', false);
     setGameDot('nolwen', false);
@@ -130,7 +144,7 @@ const GameHub = {
 
   async exitGame() {
     if (this.roomRef) {
-      this.roomRef.update({ leftBy: this.player }).catch(() => {});
+      this.roomRef.update({ leftBy: this.player, leftAt: Date.now() }).catch(() => {});
     }
 
     if (State.roomCode && isFirebaseReady()) {
@@ -156,6 +170,16 @@ function setGameDot(player, on) {
   const c = document.getElementById('gpstatus-' + player);
   if (d) d.classList.toggle('online', on);
   if (c) c.classList.toggle('connected', on);
+}
+
+function normalizeList(value) {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === 'object') {
+    return Object.keys(value)
+      .sort((a, b) => Number(a) - Number(b))
+      .map(k => value[k]);
+  }
+  return [];
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -575,12 +599,23 @@ const VOD = {
     const gs = snap.val()?.gameState || {};
 
     const usedKey = type === 'verite' ? 'usedVerite' : 'usedDefi';
-    const used = Array.isArray(gs[usedKey]) ? gs[usedKey] : [];
+    const used = normalizeList(gs[usedKey])
+      .map(v => Number(v))
+      .filter(v => Number.isInteger(v) && v >= 0 && v < pool.length);
+    const usedSet = new Set(used);
+    const lastText = typeof gs.lastQuestion === 'string' ? gs.lastQuestion : '';
 
-    let available = pool.map((_, i) => i).filter(i => !used.includes(i));
+    let available = pool.map((_, i) => i).filter(i => !usedSet.has(i));
     if (available.length === 0) {
       // Pool exhausted: reset cycle, but still avoid immediate repeat if possible.
       available = pool.map((_, i) => i);
+    }
+
+    if (available.length > 1 && lastText) {
+      const withoutLastText = available.filter(i => pool[i] !== lastText);
+      if (withoutLastText.length > 0) {
+        available = withoutLastText;
+      }
     }
 
     let idx = available[Math.floor(Math.random() * available.length)];
@@ -590,7 +625,7 @@ const VOD = {
     }
 
     const text = pool[idx];
-    const nextUsed = used.includes(idx) ? used : [...used, idx];
+    const nextUsed = usedSet.has(idx) ? used : [...used, idx];
 
     const payload = {
       'gameState/pick':         type,
