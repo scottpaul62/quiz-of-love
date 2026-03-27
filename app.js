@@ -259,7 +259,7 @@ const App = {
 
     const input = document.getElementById('join-code-input');
     const code  = input.value.trim().toUpperCase();
-    if (code.length !== 6) { App.toast("Code à 6 caractères requis !"); return; }
+    if (code.length !== 3 || !/^\d{3}$/.test(code)) { App.toast("Code à 3 chiffres requis !"); return; }
 
     State.roomCode = code;
     State.isHost   = false;
@@ -313,7 +313,9 @@ const App = {
       App.handleRoomUpdate(snap.val());
     });
 
-    // Listener chat séparé — child_added pour ne jamais écraser les messages simultanés
+    // Listener chat séparé — child_added avec clé Firebase unique pour déduplication fiable
+    if (!State._seenMsgKeys) State._seenMsgKeys = new Set();
+    State._seenMsgKeys.clear();
     const chatStart = State.joinedAt || Date.now();
     State._msgRef = db.ref('rooms/' + code + '/messages')
       .orderByChild('at')
@@ -321,6 +323,9 @@ const App = {
       .limitToLast(30);
     State._msgRef.on('child_added', snap => {
       if (!snap.exists()) return;
+      const key = snap.key; // clé Firebase push = toujours unique
+      if (State._seenMsgKeys.has(key)) return;
+      State._seenMsgKeys.add(key);
       App.handleLiveMessage(snap.val());
     });
   },
@@ -720,10 +725,6 @@ const App = {
 
   handleLiveMessage(msg) {
     if (!msg || !msg.text) return;
-    // Déduplication par timestamp+auteur (au cas où le listener se déclenche deux fois)
-    const key = `${msg.from}:${msg.at}`;
-    if (key === State._lastMsgKey) return;
-    State._lastMsgKey = key;
     App.showLiveMessageBubble(msg);
     if (msg.from && msg.from !== State.player) {
       SFX.play('chat');
@@ -735,15 +736,21 @@ const App = {
     if (!layer) return;
 
     const bubble = document.createElement('div');
-    const isMine = msg.from === State.player;
-    bubble.className = 'live-msg-bubble' + (isMine ? ' mine' : '');
+    // isMine = ce message vient du joueur actuel sur CET appareil
+    const isMine = !!State.player && msg.from === State.player;
+    bubble.className = 'live-msg-bubble' + (isMine ? ' mine' : ' theirs');
 
     const stackIndex = layer.children.length % 5;
-    bubble.style.setProperty('--top', `calc(12% + ${stackIndex * 56}px)`);
+    bubble.style.setProperty('--top', `calc(12% + ${stackIndex * 60}px)`);
 
+    // Nom : "Moi" pour mes messages, prénom pour les autres
     const fromLabel = document.createElement('span');
     fromLabel.className = 'live-msg-name';
-    fromLabel.textContent = msg.from === 'scott' ? 'Scott' : msg.from === 'nolwen' ? 'Nolwen' : 'Salon';
+    if (isMine) {
+      fromLabel.textContent = 'Moi';
+    } else {
+      fromLabel.textContent = msg.from === 'scott' ? 'Scott 👨' : msg.from === 'nolwen' ? 'Nolwen 👩' : '💬';
+    }
 
     const msgText = document.createElement('span');
     msgText.className = 'live-msg-text';
@@ -753,6 +760,7 @@ const App = {
     bubble.appendChild(msgText);
     layer.appendChild(bubble);
 
+    setTimeout(() => bubble.classList.add('fade-out'), 3800);
     setTimeout(() => bubble.remove(), 4200);
   },
 
@@ -1195,8 +1203,8 @@ function initShootingStars() {
 //  UTILITAIRES
 // ═══════════════════════════════════════════════════════════
 function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  // 3 chiffres : 100-999
+  return String(Math.floor(100 + Math.random() * 900));
 }
 
 // ═══════════════════════════════════════════════════════════

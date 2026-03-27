@@ -68,8 +68,8 @@
         </button>
         <div class="divider-text">— ou rejoindre une partie —</div>
         <div class="join-form">
-          <input type="text" id="join-code-input" placeholder="CODE À 6 CHIFFRES"
-            maxlength="6" autocomplete="off" oninput="this.value=this.value.toUpperCase()" />
+          <input type="text" id="join-code-input" placeholder="CODE À 3 CHIFFRES"
+            maxlength="3" autocomplete="off" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
           <button class="btn btn-secondary" onclick="App.joinRoom()">Rejoindre ➔</button>
         </div>
 

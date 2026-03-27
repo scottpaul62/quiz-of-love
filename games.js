@@ -997,14 +997,13 @@ const BN = {
   async ready() {
     const key = `gameState/ships${GameHub.player.charAt(0).toUpperCase()+GameHub.player.slice(1)}`;
     await GameHub.roomRef.update({ [key]: this.myShips });
+    this.readyLocal = true;
 
-    // Vérifier si les deux sont prêts (hôte)
-    if (GameHub.isHost) {
-      const snap = await GameHub.roomRef.get();
-      const gs   = snap.val().gameState;
-      if (this._ships(gs, 'scott') && this._ships(gs, 'nolwen')) {
-        await GameHub.roomRef.update({ 'gameState/statusPhase': 'playing' });
-      }
+    // Les deux joueurs vérifient — le dernier à confirmer lance la partie
+    const snap = await GameHub.roomRef.get();
+    const gs   = snap.val()?.gameState;
+    if (gs && this._ships(gs, 'scott') && this._ships(gs, 'nolwen')) {
+      await GameHub.roomRef.update({ 'gameState/statusPhase': 'playing' });
     }
   },
 
