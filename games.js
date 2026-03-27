@@ -53,18 +53,35 @@ const GameHub = {
     this.setupListener(this.roomCode);
 
     if (this.isHost) {
-      const gs = this.initState(this.type);
-      await db.ref('games/' + this.roomCode).set({
-        host: roomData.host || 'scott',
-        guest: roomData.guest || 'nolwen',
-        type: this.type,
-        status: 'playing',
-        sessionId: this.sessionId,
-        gameState: gs,
-        leftBy: '_',
-        leftAt: 0,
-        createdAt: Date.now(),
-      });
+      // Vérifie si une partie avec la même session existe déjà
+      // (reconnexion après coupure) → ne pas remettre à zéro
+      const existSnap = await db.ref('games/' + this.roomCode).get();
+      const exist = existSnap.val();
+      if (exist && exist.sessionId === this.sessionId) {
+        // Reprendre la partie : effacer le flag de déconnexion stale
+        await db.ref('games/' + this.roomCode).update({ leftBy: '_', leftAt: 0 });
+      } else {
+        // Nouvelle partie
+        const gs = this.initState(this.type);
+        await db.ref('games/' + this.roomCode).set({
+          host: roomData.host || 'scott',
+          guest: roomData.guest || 'nolwen',
+          type: this.type,
+          status: 'playing',
+          sessionId: this.sessionId,
+          gameState: gs,
+          leftBy: '_',
+          leftAt: 0,
+          createdAt: Date.now(),
+        });
+      }
+    } else {
+      // Invité qui se reconnecte : effacer son propre flag de déconnexion
+      const existSnap = await db.ref('games/' + this.roomCode).get();
+      const exist = existSnap.val();
+      if (exist && exist.leftBy === this.player) {
+        await db.ref('games/' + this.roomCode).update({ leftBy: '_', leftAt: 0 });
+      }
     }
   },
 

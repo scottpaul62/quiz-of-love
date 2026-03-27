@@ -201,7 +201,7 @@ const App = {
     card.classList.add('selected');
     card.querySelector('.player-check').classList.remove('hidden');
     document.getElementById('room-options').classList.remove('hidden');
-    AvatarVoices.play(name);
+    SFX.play('select');
     App.updateChatDockVisibility();
   },
 
@@ -1075,18 +1075,45 @@ const SFX = {
     o.start(t); o.stop(t + duration + 0.01);
   },
 
+  // Carillon doux — attaque douce + longue décroissance
+  _chime(freq, volume = 0.06, decay = 0.55, start = 0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + start;
+    const o = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(volume, t + 0.025);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decay);
+    o.connect(g); g.connect(this.ctx.destination);
+    o.start(t); o.stop(t + decay + 0.02);
+  },
+
   play(type) {
     switch (type) {
-      case 'select': this._tone(520, 'sine', 0.12, 0.12); break;
+      // ── Sons menu — carillons doux ──────────────────────────
+      case 'select':
+        this._chime(784, 0.06, 0.45, 0);
+        this._chime(988, 0.04, 0.35, 0.08);
+        break;
       case 'create':
       case 'join':
-        this._tone(440, 'sine', 0.15, 0.18, 0);
-        this._tone(660, 'sine', 0.15, 0.18, 0.15);
-        this._tone(880, 'sine', 0.2,  0.18, 0.3);
+        this._chime(523, 0.06, 0.5, 0);
+        this._chime(659, 0.06, 0.5, 0.1);
+        this._chime(784, 0.07, 0.6, 0.2);
         break;
       case 'start':
-        [523, 659, 784].forEach((f, i) => this._tone(f, 'sine', 0.25, 0.18, i * 0.12));
+        this._chime(523, 0.06, 0.55, 0);
+        this._chime(784, 0.06, 0.55, 0.1);
+        this._chime(1047, 0.07, 0.65, 0.2);
+        this._chime(1319, 0.05, 0.55, 0.32);
         break;
+      case 'chat':
+        this._chime(1047, 0.05, 0.3, 0);
+        this._chime(1319, 0.04, 0.22, 0.07);
+        break;
+      // ── Sons en jeu — inchangés ─────────────────────────────
       case 'answer': this._tone(660, 'sine', 0.1, 0.1); break;
       case 'correct':
         [523, 659, 784, 1047].forEach((f, i) => this._tone(f, 'sine', 0.25, 0.18, i * 0.09));
@@ -1100,10 +1127,6 @@ const SFX = {
         [523, 659, 784, 1047, 1319].forEach((f, i) => this._tone(f, 'sine', 0.35, 0.2, i * 0.1));
         break;
       case 'next': this._tone(440, 'sine', 0.1, 0.1); break;
-      case 'chat':
-        this._tone(880, 'triangle', 0.08, 0.08, 0);
-        this._tone(1175, 'triangle', 0.11, 0.07, 0.08);
-        break;
       case 'meow':
         this._playMeowFile().catch(() => this._playMeowSynth());
         break;
@@ -1178,15 +1201,25 @@ function initShootingStars() {
   const container = document.getElementById('shooting-stars-bg');
   if (!container) return;
   container.innerHTML = '';
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 14; i++) {
     const star = document.createElement('div');
-    star.className = 'shooting-star';
-    const sx = 50 + Math.random() * 45;
-    const sy = 4 + Math.random() * 54;
-    const len = 90 + Math.random() * 120;
-    const dur = 2.4 + Math.random() * 2.8;
-    const delay = Math.random() * 6;
-    const angle = -18 - Math.random() * 24;
+    // ~40 % vont de droite à gauche
+    const rtl = i % 5 < 2;
+    star.className = 'shooting-star' + (rtl ? ' rtl' : '');
+
+    const sy  = 3 + Math.random() * 55;
+    const len = 110 + Math.random() * 140;
+    const dur = 2.8 + Math.random() * 3.5;
+    const delay = i * 0.9 + Math.random() * 3;
+    const angle = rtl
+      ? (16 + Math.random() * 18)   // angle positif → descend vers la gauche
+      : -(16 + Math.random() * 18); // angle négatif → descend vers la droite
+
+    // LTR : démarre hors écran à gauche ; RTL : hors écran à droite
+    const sx = rtl
+      ? (95 + Math.random() * 15)   // 95–110 %
+      : -(5 + Math.random() * 10);  // -5 à -15 %
+
     star.style.cssText = `
       --sx: ${sx}%;
       --sy: ${sy}%;
