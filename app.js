@@ -296,6 +296,7 @@ const App = {
   setupListener(code) {
     if (!isFirebaseReady()) return;
     if (State.roomRef) State.roomRef.off();
+    if (State._msgRef) { State._msgRef.off(); State._msgRef = null; }
     State.roomRef = db.ref('rooms/' + code);
 
     // Déconnexion brutale (fermeture onglet) → signaler aux autres
@@ -306,9 +307,21 @@ const App = {
       leftAt: firebase.database.ServerValue.TIMESTAMP,
     });
 
+    // Listener principal (état du salon)
     State.roomRef.on('value', snap => {
       if (!snap.exists()) return;
       App.handleRoomUpdate(snap.val());
+    });
+
+    // Listener chat séparé — child_added pour ne jamais écraser les messages simultanés
+    const chatStart = State.joinedAt || Date.now();
+    State._msgRef = db.ref('rooms/' + code + '/messages')
+      .orderByChild('at')
+      .startAt(chatStart)
+      .limitToLast(30);
+    State._msgRef.on('child_added', snap => {
+      if (!snap.exists()) return;
+      App.handleLiveMessage(snap.val());
     });
   },
 
@@ -319,6 +332,7 @@ const App = {
     if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function') {
       GameHub.cleanup();
     }
+    if (State._msgRef) { State._msgRef.off(); State._msgRef = null; }
     if (State._leftRef) {
       State._leftRef.onDisconnect().cancel();
       State._leftRef = null;
@@ -397,7 +411,7 @@ const App = {
 
   handleRoomUpdate(data) {
     const status = data.status || 'lobby';
-    App.handleLiveMessage(data.liveMessage);
+    // Le chat est géré par le listener child_added séparé dans setupListener
 
     const roomLeftAt = Number(data.leftAt || 0);
     const isFreshLeave = !!roomLeftAt && roomLeftAt !== State.lastRoomLeftAt && roomLeftAt >= (State.joinedAt || 0);
@@ -689,7 +703,6 @@ const App = {
     if (!text) return;
 
     const payload = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       from: State.player,
       text: text.slice(0, 140),
       at: Date.now(),
@@ -697,7 +710,8 @@ const App = {
 
     input.value = '';
     try {
-      await State.roomRef.child('liveMessage').set(payload);
+      // push() crée un nœud unique → pas d'écrasement si les deux écrivent en même temps
+      await db.ref('rooms/' + State.roomCode + '/messages').push(payload);
       SFX.play('chat');
     } catch (_) {
       App.toast("Message non envoyé 😕");
@@ -705,9 +719,11 @@ const App = {
   },
 
   handleLiveMessage(msg) {
-    if (!msg || !msg.id || msg.id === '_' || msg.id === State.lastLiveMessageId) return;
-    State.lastLiveMessageId = msg.id;
-    if (!msg.text) return;
+    if (!msg || !msg.text) return;
+    // Déduplication par timestamp+auteur (au cas où le listener se déclenche deux fois)
+    const key = `${msg.from}:${msg.at}`;
+    if (key === State._lastMsgKey) return;
+    State._lastMsgKey = key;
     App.showLiveMessageBubble(msg);
     if (msg.from && msg.from !== State.player) {
       SFX.play('chat');
@@ -756,6 +772,7 @@ const App = {
   // ─── Recommencer ─────────────────────────────────────────
   restart() {
     App.stopTimer();
+    if (State._msgRef) { State._msgRef.off(); State._msgRef = null; }
     if (State.roomRef) State.roomRef.off();
     if (typeof GameHub !== 'undefined' && typeof GameHub.cleanup === 'function') {
       GameHub.cleanup();
@@ -765,7 +782,7 @@ const App = {
       player: null, roomCode: null, isHost: false, mode: null,
       selectedMode: null, roomRef: null, lastStatus: null,
       myAnswer: null, computing: false, _lastQ: undefined,
-      lastMiniLeftAt: 0, lastRoomLeftAt: 0, lastLiveMessageId: '_', joinedAt: 0,
+      lastMiniLeftAt: 0, lastRoomLeftAt: 0, lastLiveMessageId: '_', _lastMsgKey: '', joinedAt: 0,
     });
 
     document.querySelectorAll('.player-card').forEach(c => {

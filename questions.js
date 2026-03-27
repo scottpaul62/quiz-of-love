@@ -262,6 +262,16 @@ const TROLL_MESSAGES = [
   "Meme le chat a mieux repondu que vous.",
   "Ce n'est pas un match, c'est un clash.",
   "Team aleatoire validee.",
+  "Vous jouez en mode hard difficulty rupture.",
+  "Niveau connexion : téléphone 2G dans un tunnel.",
+  "Respectueusement... t'es rentré(e) dans la mauvaise salle.",
+  "Ce match a été validé par personne.",
+  "Même vos auras sont pas synchronisées là.",
+  "C'est beau d'essayer. Continue d'essayer.",
+  "T'as appuyé sur aléatoire ou quoi ? 😭",
+  "Deux étrangers se rencontrent pour la première fois — vous deux.",
+  "Même votre chat aurait mieux deviné.",
+  "Prochain niveau : se parler dans la vraie vie peut-être.",
 ];
 
 // Messages troll pour le perdant (fin de partie)
@@ -280,6 +290,14 @@ const LOSER_MESSAGES_SCOTT = [
   "Scott, ton aura s'est deconnectee du serveur.",
   "Faut reviser tes potins, champion.",
   "Scott en mode speedrun de la defaite.",
+  "Défi Scott : apprends qui je suis avant la prochaine. 😘",
+  "T'as perdu si fort que même les étoiles ont ri 🌟 — Nolwen",
+  "Ta sanction : massage 10 min no skip 💆 — Nolwen",
+  "Zéro pointé. Cours. Sauve-toi. 😂",
+  "T'as répondu comme quelqu'un qui me connaît pas — update toi bébé.",
+  "Loser tax : tu fais le café demain matin 🫖 — Nolwen",
+  "Ta pénal : dire 3 trucs trop beaux sur moi tout de suite 💅 — Nolwen",
+  "Défaite validée. Ma domination confirmée 👑 — Nolwen",
 ];
 
 const LOSER_MESSAGES_NOLWEN = [
@@ -297,6 +315,14 @@ const LOSER_MESSAGES_NOLWEN = [
   "Ton cerveau a fait pause au pire moment.",
   "Nolwen en full impro, j'ai vu mais j'ai rien dit.",
   "C'est mignon de participer, continue.",
+  "Défi Nolwen : admet que je suis le meilleur. Allez. 😏 — Scott",
+  "Ta sanction : bisou + compliment x3 immédiat. — Scott 😘",
+  "T'as perdu mais t'es belle donc c'est presque pardonné. — Scott",
+  "Loser tax : c'est toi qui choisis le prochain rancard 🌹 — Scott",
+  "Nolwen défaite certifiée, signature Scott au bas. 😂",
+  "Ta pénal : chanter ma chanson préférée pour moi. — Scott 🎤",
+  "Respectueusement, je t'aime mais là c'était honteux 😭 — Scott",
+  "Défaite totale, jugement rendu, appel rejeté 👨‍⚖️ — Scott",
 ];
 
 // Messages pour le gagnant
@@ -306,6 +332,11 @@ const WINNER_MESSAGES = [
   "Trop fort(e), logique c'était toi 😎",
   "Victoire totale, aucune discussion possible 🏆",
   "Le/La meilleur(e) tout simplement 💅",
+  "Victoire méritée, pas de débat possible 🎯",
+  "T'as domné ce jeu comme un boss 😎",
+  "Logique. C'était toi depuis le début. 🌟",
+  "GG ez, no contest 🏅",
+  "T'as gagné dans les grandes largeurs — chapeau 🎩",
 ];
 
 // Messages égalité
@@ -315,6 +346,11 @@ const DRAW_MESSAGES = [
   "Égalité parfaite — on remet ça ? 🤝",
   "Personne perd, personne gagne... et si c'était ça l'amour ? 🥰",
   "Vous pensez pareil — c'est flippant et magnifique 🤩",
+  "Égalité = vous avez tous les deux perdu 😂 — selon nos calculs",
+  "Match nul mais vous êtes trop mignons ensemble 🥰",
+  "Exacto match. Vous êtes synchronisés niveau âme. 💞",
+  "Égaux en tout — c'est votre super-pouvoir de couple.",
+  "Nul partout : vous refaites une partie ou vous vous embrassez ? 😏",
 ];
 
 // Mélangeur Fisher-Yates
